@@ -2,7 +2,7 @@
 const SPRINT_SPEED = 0.2;
 const NORMAL_SPEED = 0.1;
 const DOUBLE_CLICK_TIME = 300;
-const GRAVITY = 0.02;
+const GRAVITY = 0.015; // Gravidade suave para o personagem
 const BLOCK_SIZE = 1;
 const GRID_SIZE = 20;
 const CAMERA_DISTANCE = 5;
@@ -74,7 +74,7 @@ function init() {
     scene.background = new THREE.Color(0x87CEEB);
 
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, PLAYER_HEIGHT, 0);
+    camera.position.set(0, PLAYER_HEIGHT / 2, 0); // Câmera na metade da altura do jogador
 
     const canvas = document.getElementById('game-canvas');
     renderer = new THREE.WebGLRenderer({ antialias: true, canvas: canvas });
@@ -107,7 +107,7 @@ function init() {
     scene.add(sun);
 
     player = new THREE.Object3D();
-    player.position.set(0, BLOCK_SIZE, 0); // Começa no topo do chão
+    player.position.set(0, BLOCK_SIZE, 0); // Começa no topo do chão (y = 1)
     scene.add(player);
     player.add(camera);
 
@@ -269,7 +269,7 @@ function toggleCameraMode() {
     }
 
     if (cameraMode === 0) {
-        camera.position.set(0, PLAYER_HEIGHT, 0);
+        camera.position.set(0, PLAYER_HEIGHT / 2, 0);
         camera.rotation.set(0, 0, 0);
         player.add(camera);
         switchHandItem(selectedItem);
@@ -292,10 +292,10 @@ function updateCameraOrbit() {
 
     camera.position.set(
         player.position.x + offsetX,
-        player.position.y + PLAYER_HEIGHT + offsetY,
+        player.position.y + PLAYER_HEIGHT / 2 + offsetY,
         player.position.z + offsetZ
     );
-    camera.lookAt(player.position.x, player.position.y + PLAYER_HEIGHT, player.position.z);
+    camera.lookAt(player.position.x, player.position.y + PLAYER_HEIGHT / 2, player.position.z);
 }
 
 function updateBodyVisibility() {
@@ -420,25 +420,27 @@ function checkCollision() {
         const blockBox = {
             minX: block.x * BLOCK_SIZE - BLOCK_SIZE / 2,
             maxX: block.x * BLOCK_SIZE + BLOCK_SIZE / 2,
-            minY: block.y * BLOCK_SIZE,
-            maxY: block.y * BLOCK_SIZE + BLOCK_SIZE,
+            minY: block.y * BLOCK_SIZE - BLOCK_SIZE / 2, // Ajustado para centro do bloco
+            maxY: block.y * BLOCK_SIZE + BLOCK_SIZE / 2, // Ajustado para centro do bloco
             minZ: block.z * BLOCK_SIZE - BLOCK_SIZE / 2,
             maxZ: block.z * BLOCK_SIZE + BLOCK_SIZE / 2
         };
 
+        // Colisão vertical
         if (playerBox.minX < blockBox.maxX && playerBox.maxX > blockBox.minX &&
             playerBox.minZ < blockBox.maxZ && playerBox.maxZ > blockBox.minZ) {
             if (velocity.y <= 0 && playerBox.minY <= blockBox.maxY && playerBox.maxY > blockBox.minY) {
-                player.position.y = blockBox.maxY;
+                player.position.y = blockBox.maxY; // Fica exatamente em cima do bloco
                 velocity.y = 0;
                 canJump = true;
                 onGround = true;
             } else if (velocity.y > 0 && playerBox.maxY >= blockBox.minY && playerBox.minY < blockBox.maxY) {
-                player.position.y = blockBox.minY - PLAYER_HEIGHT;
+                player.position.y = blockBox.minY - PLAYER_HEIGHT; // Para ao bater a cabeça
                 velocity.y = 0;
             }
         }
 
+        // Colisão horizontal
         if (playerBox.minY < blockBox.maxY && playerBox.maxY > blockBox.minY) {
             if (moveForward || moveBackward || moveLeft || moveRight) {
                 if (playerBox.minX < blockBox.maxX && playerBox.maxX > blockBox.minX &&
@@ -456,8 +458,9 @@ function checkCollision() {
         }
     }
 
+    // Chão base (quando não há blocos)
     if (!onGround && player.position.y <= BLOCK_SIZE) {
-        player.position.y = BLOCK_SIZE;
+        player.position.y = BLOCK_SIZE; // Garante que fica no topo do chão base
         velocity.y = 0;
         canJump = true;
     }
@@ -941,6 +944,7 @@ function animate() {
         player.rotation.y = cameraAngleY;
     }
 
+    // Aplicar gravidade
     velocity.y -= GRAVITY;
     player.position.y += velocity.y;
 
@@ -967,7 +971,7 @@ function animate() {
 
     if (player.position.y < -10) {
         setTimeout(() => {
-            player.position.set(0, BLOCK_SIZE, 0);
+            player.position.set(0, BLOCK_SIZE, 0); // Volta ao topo do chão
             velocity.y = 0;
             canJump = true;
         }, 2000);
