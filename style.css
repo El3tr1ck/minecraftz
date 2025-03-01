@@ -271,7 +271,7 @@ body {
 #touch-left { bottom: 30px; left: 0; }
 #touch-right { bottom: 30px; left: 140px; }
 #touch-jump { bottom: 30px; right: 0; }
-#touch-options { top: 20px; right: 90px; }
+#touch-options { top: 20px; right: 90px; } /* Modificado: ao lado do mode-button */
 #touch-inventory { bottom: 30px; left: 50%; transform: translateX(-50%); }
 #touch-camera { top: 20px; left: 50%; transform: translateX(-50%); }
 
@@ -303,6 +303,7 @@ body {
 
 /* Botão de modo de câmera */
 .camera-mode-button {
+    display: none; /* Modificado: escondido por padrão */
     position: absolute;
     top: 20px;
     left: 50%;
@@ -321,6 +322,10 @@ body {
     box-shadow: 0 4px 8px var(--shadow-color);
     transition: background var(--transition), transform var(--transition);
     z-index: 15;
+}
+
+.camera-mode-button.active { /* Modificado: só aparece com a classe active */
+    display: flex;
 }
 
 .camera-mode-button:hover {
