@@ -510,8 +510,19 @@ function toggleControlMode() {
     const modeButton = document.getElementById('mode-button');
     modeButton.innerHTML = controlMode === 'keyboard' ? '<i class="fas fa-keyboard"></i>' : '<i class="fas fa-mobile-alt"></i>';
     const touchControls = document.getElementById('touch-controls');
+    const cameraModeButton = document.getElementById('camera-mode-button'); // Modificado: referência ao botão de câmera
+    
+    // Mostrar/esconder controles de toque
     touchControls.style.display = controlMode === 'mobile' ? 'block' : 'none';
     
+    // Mostrar/esconder botão de troca de câmera
+    if (controlMode === 'mobile') {
+        cameraModeButton.classList.add('active');
+    } else {
+        cameraModeButton.classList.remove('active');
+    }
+    
+    // Resetar movimento
     moveForward = false;
     moveBackward = false;
     moveLeft = false;
