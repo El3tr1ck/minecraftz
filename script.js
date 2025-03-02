@@ -9,7 +9,7 @@ const CAMERA_DISTANCE = 5;
 const PLAYER_HEIGHT = 1.8;
 const PLAYER_WIDTH = 0.6;
 const JUMP_HEIGHT = BLOCK_SIZE;
-const MAX_FPS = 60; // Novo: limite de FPS
+const MIN_FRAME_TIME = 1000 / 60;
 
 // Estado do jogo
 let scene, camera, renderer;
@@ -45,7 +45,7 @@ let controls = {
 let awaitingKey = null;
 let touchStartX = null, touchStartY = null;
 let lastFrameTime = performance.now();
-let hudUpdateCounter = 0; // Novo: contador para atualização do HUD
+let hudUpdateCounter = 0;
 
 const textureLoader = new THREE.TextureLoader();
 const grassTexture = textureLoader.load('img/bloco_de_grama.png', 
@@ -139,10 +139,10 @@ function init() {
     for (let x = -GRID_SIZE / 2; x < GRID_SIZE / 2; x++) {
         for (let z = -GRID_SIZE / 2; z < GRID_SIZE / 2; z++) {
             const key = `${x},${0},${z}`;
-            blocks[key] = { x, y: 0, z };
+            blocks[key] = { x, y: 0, z, material: floorMaterial };
         }
     }
-    createOptimizedBlocks(blocks, floorMaterial);
+    updateBlockMeshes(); // Inicializa os blocos com a otimização de faces
 
     setupEventListeners();
     setupTouchControls();
@@ -161,7 +161,7 @@ function init() {
         toggleCameraMode();
     });
 
-    animate();
+    animate(performance.now());
 }
 
 function createBodyPart(geometry, material, x, y, z) {
@@ -173,17 +173,126 @@ function createBodyPart(geometry, material, x, y, z) {
     return part;
 }
 
-function createOptimizedBlocks(blocks, material) {
+function getNeighbors(x, y, z) {
+    return [
+        { key: `${x + 1},${y},${z}`, dir: 'right' },
+        { key: `${x - 1},${y},${z}`, dir: 'left' },
+        { key: `${x},${y + 1},${z}`, dir: 'top' },
+        { key: `${x},${y - 1},${z}`, dir: 'bottom' },
+        { key: `${x},${y},${z + 1}`, dir: 'front' },
+        { key: `${x},${y},${z - 1}`, dir: 'back' }
+    ];
+}
+
+function createBlockGeometry(x, y, z) {
+    const geometry = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+    const position = geometry.attributes.position;
+
+    // Determina quais faces são visíveis
+    const neighbors = getNeighbors(x, y, z);
+    const visibleFaces = {
+        right: !blocks[neighbors[0].key],
+        left: !blocks[neighbors[1].key],
+        top: !blocks[neighbors[2].key],
+        bottom: !blocks[neighbors[3].key],
+        front: !blocks[neighbors[4].key],
+        back: !blocks[neighbors[5].key]
+    };
+
+    // Remove faces não visíveis ajustando os triângulos
+    const newVertices = [];
+    const newIndices = [];
+    const newUVs = [];
+    let indexOffset = 0;
+
+    // Ordem das faces em BoxGeometry: right, left, top, bottom, front, back
+    const faceIndices = [
+        [0, 1, 2, 2, 3, 0], // right
+        [4, 5, 6, 6, 7, 4], // left
+        [8, 9, 10, 10, 11, 8], // top
+        [12, 13, 14, 14, 15, 12], // bottom
+        [16, 17, 18, 18, 19, 16], // front
+        [20, 21, 22, 22, 23, 20] // back
+    ];
+
+    const faceVertices = [
+        [1, 3, 5, 7], // right
+        [0, 2, 4, 6], // left
+        [2, 3, 6, 7], // top
+        [0, 1, 4, 5], // bottom
+        [0, 1, 2, 3], // front
+        [4, 5, 6, 7]  // back
+    ];
+
+    const faceUVs = [
+        [0, 0, 1, 0, 1, 1, 0, 1], // right
+        [1, 0, 0, 0, 0, 1, 1, 1], // left
+        [0, 0, 1, 0, 1, 1, 0, 1], // top
+        [0, 0, 1, 0, 1, 1, 0, 1], // bottom
+        [0, 0, 1, 0, 1, 1, 0, 1], // front
+        [1, 0, 0, 0, 0, 1, 1, 1]  // back
+    ];
+
+    for (let i = 0; i < 6; i++) {
+        const faceKey = ['right', 'left', 'top', 'bottom', 'front', 'back'][i];
+        if (visibleFaces[faceKey]) {
+            const vertexIndices = faceVertices[i];
+            for (let j = 0; j < 4; j++) {
+                const idx = vertexIndices[j];
+                newVertices.push(
+                    position.array[idx * 3],
+                    position.array[idx * 3 + 1],
+                    position.array[idx * 3 + 2]
+                );
+                newUVs.push(faceUVs[i][j * 2], faceUVs[i][j * 2 + 1]);
+            }
+            newIndices.push(
+                indexOffset, indexOffset + 1, indexOffset + 2,
+                indexOffset + 2, indexOffset + 3, indexOffset
+            );
+            indexOffset += 4;
+        }
+    }
+
+    const optimizedGeometry = new THREE.BufferGeometry();
+    optimizedGeometry.setAttribute('position', new THREE.Float32BufferAttribute(newVertices, 3));
+    optimizedGeometry.setAttribute('uv', new THREE.Float32BufferAttribute(newUVs, 2));
+    optimizedGeometry.setIndex(newIndices);
+    return optimizedGeometry;
+}
+
+function updateBlockMeshes() {
     Object.keys(blocks).forEach(key => {
-        if (!blocks[key].mesh) {
-            const { x, y, z } = blocks[key];
-            const geometry = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
-            const block = new THREE.Mesh(geometry, material);
-            block.position.set(x * BLOCK_SIZE, y * BLOCK_SIZE, z * BLOCK_SIZE);
-            block.castShadow = true;
-            block.receiveShadow = true;
-            scene.add(block);
-            blocks[key].mesh = block;
+        const block = blocks[key];
+        if (block.mesh) {
+            scene.remove(block.mesh);
+            block.mesh.geometry.dispose();
+        }
+        const geometry = createBlockGeometry(block.x, block.y, block.z);
+        block.mesh = new THREE.Mesh(geometry, block.material);
+        block.mesh.position.set(block.x * BLOCK_SIZE, block.y * BLOCK_SIZE, block.z * BLOCK_SIZE);
+        block.mesh.castShadow = true;
+        block.mesh.receiveShadow = true;
+        scene.add(block.mesh);
+    });
+}
+
+function updateNeighborBlocks(x, y, z) {
+    const neighbors = getNeighbors(x, y, z);
+    neighbors.forEach(neighbor => {
+        if (blocks[neighbor.key]) {
+            scene.remove(blocks[neighbor.key].mesh);
+            blocks[neighbor.key].mesh.geometry.dispose();
+            const geometry = createBlockGeometry(blocks[neighbor.key].x, blocks[neighbor.key].y, blocks[neighbor.key].z);
+            blocks[neighbor.key].mesh = new THREE.Mesh(geometry, blocks[neighbor.key].material);
+            blocks[neighbor.key].mesh.position.set(
+                blocks[neighbor.key].x * BLOCK_SIZE,
+                blocks[neighbor.key].y * BLOCK_SIZE,
+                blocks[neighbor.key].z * BLOCK_SIZE
+            );
+            blocks[neighbor.key].mesh.castShadow = true;
+            blocks[neighbor.key].mesh.receiveShadow = true;
+            scene.add(blocks[neighbor.key].mesh);
         }
     });
 }
@@ -322,12 +431,12 @@ function getTargetBlock(action) {
 
         if (action === 'place') {
             const newPos = blockPos.add(normal.multiplyScalar(BLOCK_SIZE));
-            return { x: Math.round(newPos.x), y: Math.round(newPos.y), z: Math.round(newPos.z) };
+            return { x: Math.round(newPos.x / BLOCK_SIZE), y: Math.round(newPos.y / BLOCK_SIZE), z: Math.round(newPos.z / BLOCK_SIZE) };
         } else if (action === 'break' || action === 'outline' || action === 'pick') {
             return {
-                x: Math.round(blockPos.x),
-                y: Math.round(blockPos.y),
-                z: Math.round(blockPos.z),
+                x: Math.round(blockPos.x / BLOCK_SIZE),
+                y: Math.round(blockPos.y / BLOCK_SIZE),
+                z: Math.round(blockPos.z / BLOCK_SIZE),
                 faceNormal: normal,
                 material: intersect.object.material
             };
@@ -343,7 +452,7 @@ function updateOutline() {
     if (target) {
         const block = blocks[`${target.x},${target.y},${target.z}`];
         if (block && block.mesh) {
-            const geometry = new THREE.EdgesGeometry(block.mesh.geometry);
+            const geometry = new THREE.EdgesGeometry(createBlockGeometry(block.x, block.y, block.z));
             const material = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 1 });
             outline = new THREE.LineSegments(geometry, material);
             outline.position.copy(block.mesh.position);
@@ -367,8 +476,9 @@ function placeBlock() {
                 blockMaterial = new THREE.MeshStandardMaterial({ map: lampblockTexture });
             }
 
-            blocks[key] = { x: target.x, y: target.y, z: target.z };
-            createOptimizedBlocks(blocks, blockMaterial);
+            blocks[key] = { x: target.x, y: target.y, z: target.z, material: blockMaterial };
+            updateBlockMeshes();
+            updateNeighborBlocks(target.x, target.y, target.z);
         }
     }
 }
@@ -379,7 +489,9 @@ function breakBlock() {
         const key = `${target.x},${target.y},${target.z}`;
         if (blocks[key] && blocks[key].mesh) {
             scene.remove(blocks[key].mesh);
+            blocks[key].mesh.geometry.dispose();
             delete blocks[key];
+            updateNeighborBlocks(target.x, target.y, target.z);
         }
     }
 }
@@ -756,7 +868,7 @@ function setupTouchControls() {
     document.addEventListener('touchmove', (event) => {
         if (controlMode === 'mobile' && !inventoryOpen && !optionsOpen && !sensitivityOpen && !fovOpen && !controlsOpen) {
             const now = performance.now();
-            if (now - lastTouchTime < 16) return; // Debounce: limite de 60 FPS
+            if (now - lastTouchTime < 16) return;
             lastTouchTime = now;
             const touch = event.touches[0];
             const movementX = (touch.clientX - touchStartX) * mouseSensitivity;
@@ -954,11 +1066,14 @@ function getDirection() {
 }
 
 function animate(timestamp) {
-    requestAnimationFrame(animate);
-
-    const deltaTime = Math.min(timestamp - lastFrameTime, 1000 / MAX_FPS); // Limite de FPS
-    if (deltaTime < 1000 / MAX_FPS) return; // Pula frame se abaixo do limite
+    const deltaTime = Math.min(timestamp - lastFrameTime, 100);
+    if (deltaTime < MIN_FRAME_TIME) {
+        requestAnimationFrame(animate);
+        return;
+    }
     lastFrameTime = timestamp;
+
+    requestAnimationFrame(animate);
 
     if (cameraMode === 0) {
         // Modo primeira pessoa
@@ -966,7 +1081,7 @@ function animate(timestamp) {
         player.rotation.y = cameraAngleY;
     }
 
-    velocity.y -= GRAVITY * (deltaTime / 16); // Ajuste com deltaTime
+    velocity.y -= GRAVITY * (deltaTime / 16);
     player.position.y += velocity.y * (deltaTime / 16);
 
     const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(player.quaternion);
@@ -1005,13 +1120,14 @@ function animate(timestamp) {
     if (!inventoryOpen && !optionsOpen && !sensitivityOpen && !fovOpen && !controlsOpen) updateOutline();
 
     hudUpdateCounter++;
-    if (showFPS && hudUpdateCounter % 10 === 0) { // Atualiza HUD a cada 10 frames
+    if (showFPS && hudUpdateCounter % 15 === 0) {
         document.getElementById('fpsCounter').innerText = `FPS: ${Math.round(1000 / deltaTime)}`;
         const dir = getDirection();
         document.getElementById('direction').innerHTML = `<span style="color: ${dir.color}">${dir.text}</span>`;
         document.getElementById('positionX').innerText = `X: ${player.position.x.toFixed(2)}`;
         document.getElementById('positionY').innerText = `Y: ${player.position.y.toFixed(2)}`;
         document.getElementById('positionZ').innerText = `Z: ${player.position.z.toFixed(2)}`;
+        hudUpdateCounter = 0;
     }
 
     renderer.render(scene, camera);
