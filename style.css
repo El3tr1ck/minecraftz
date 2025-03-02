@@ -271,7 +271,7 @@ body {
 #touch-left { bottom: 30px; left: 0; }
 #touch-right { bottom: 30px; left: 140px; }
 #touch-jump { bottom: 30px; right: 0; }
-#touch-options { top: 20px; right: 90px; } /* Modificado: ao lado do mode-button */
+#touch-options { top: 20px; right: 84px; } /* Modificado: ao lado do mode-button */
 #touch-inventory { bottom: 30px; left: 50%; transform: translateX(-50%); }
 #touch-camera { top: 20px; left: 50%; transform: translateX(-50%); }
 
