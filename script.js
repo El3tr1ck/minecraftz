@@ -2,14 +2,13 @@
 const SPRINT_SPEED = 0.2;
 const NORMAL_SPEED = 0.1;
 const DOUBLE_CLICK_TIME = 300;
-const GRAVITY = 0.015;
+const GRAVITY = 0.015; // Gravidade suave para o personagem
 const BLOCK_SIZE = 1;
 const GRID_SIZE = 20;
 const CAMERA_DISTANCE = 5;
 const PLAYER_HEIGHT = 1.8;
 const PLAYER_WIDTH = 0.6;
 const JUMP_HEIGHT = BLOCK_SIZE;
-const MIN_FRAME_TIME = 1000 / 60;
 
 // Estado do jogo
 let scene, camera, renderer;
@@ -44,8 +43,6 @@ let controls = {
 };
 let awaitingKey = null;
 let touchStartX = null, touchStartY = null;
-let lastFrameTime = performance.now();
-let hudUpdateCounter = 0;
 
 const textureLoader = new THREE.TextureLoader();
 const grassTexture = textureLoader.load('img/bloco_de_grama.png', 
@@ -77,7 +74,7 @@ function init() {
     scene.background = new THREE.Color(0x87CEEB);
 
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, PLAYER_HEIGHT / 2, 0);
+    camera.position.set(0, PLAYER_HEIGHT / 2, 0); // Câmera na metade da altura do jogador
 
     const canvas = document.getElementById('game-canvas');
     renderer = new THREE.WebGLRenderer({ antialias: true, canvas: canvas });
@@ -110,7 +107,7 @@ function init() {
     scene.add(sun);
 
     player = new THREE.Object3D();
-    player.position.set(0, BLOCK_SIZE, 0);
+    player.position.set(0, BLOCK_SIZE, 0); // Começa no topo do chão (y = 1)
     scene.add(player);
     player.add(camera);
 
@@ -139,10 +136,10 @@ function init() {
     for (let x = -GRID_SIZE / 2; x < GRID_SIZE / 2; x++) {
         for (let z = -GRID_SIZE / 2; z < GRID_SIZE / 2; z++) {
             const key = `${x},${0},${z}`;
-            blocks[key] = { x, y: 0, z, material: floorMaterial };
+            blocks[key] = { x, y: 0, z };
         }
     }
-    updateBlockMeshes(); // Inicializa os blocos
+    createOptimizedBlocks(blocks, floorMaterial);
 
     setupEventListeners();
     setupTouchControls();
@@ -161,7 +158,7 @@ function init() {
         toggleCameraMode();
     });
 
-    animate(performance.now());
+    animate();
 }
 
 function createBodyPart(geometry, material, x, y, z) {
@@ -173,133 +170,17 @@ function createBodyPart(geometry, material, x, y, z) {
     return part;
 }
 
-function getNeighbors(x, y, z) {
-    return [
-        { key: `${x + 1},${y},${z}`, dir: 'right' },
-        { key: `${x - 1},${y},${z}`, dir: 'left' },
-        { key: `${x},${y + 1},${z}`, dir: 'top' },
-        { key: `${x},${y - 1},${z}`, dir: 'bottom' },
-        { key: `${x},${y},${z + 1}`, dir: 'front' },
-        { key: `${x},${y},${z - 1}`, dir: 'back' }
-    ];
-}
-
-function createBlockGeometry(x, y, z) {
-    const geometry = new THREE.BufferGeometry();
-
-    // Vértices do cubo (8 cantos)
-    const vertices = new Float32Array([
-        // Frente (z = 0.5)
-        -0.5, -0.5,  0.5, // 0
-         0.5, -0.5,  0.5, // 1
-         0.5,  0.5,  0.5, // 2
-        -0.5,  0.5,  0.5, // 3
-        // Trás (z = -0.5)
-        -0.5, -0.5, -0.5, // 4
-         0.5, -0.5, -0.5, // 5
-         0.5,  0.5, -0.5, // 6
-        -0.5,  0.5, -0.5  // 7
-    ]);
-
-    // Índices para formar as 6 faces do cubo (2 triângulos por face)
-    const indicesBase = [
-        0, 1, 2, 0, 2, 3,    // Frente
-        5, 4, 7, 5, 7, 6,    // Trás
-        4, 0, 3, 4, 3, 7,    // Esquerda
-        1, 5, 6, 1, 6, 2,    // Direita
-        3, 2, 6, 3, 6, 7,    // Topo
-        4, 5, 1, 4, 1, 0     // Fundo
-    ];
-
-    // UVs padrão para todas as faces
-    const uvsBase = new Float32Array([
-        0, 0, 1, 0, 1, 1, 0, 1, // Frente
-        0, 0, 1, 0, 1, 1, 0, 1, // Trás
-        0, 0, 1, 0, 1, 1, 0, 1, // Esquerda
-        0, 0, 1, 0, 1, 1, 0, 1, // Direita
-        0, 0, 1, 0, 1, 1, 0, 1, // Topo
-        0, 0, 1, 0, 1, 1, 0, 1  // Fundo
-    ]);
-
-    // Normais para iluminação
-    const normalsBase = new Float32Array([
-        0, 0, 1,  0, 0, 1,  0, 0, 1,  0, 0, 1,  // Frente
-        0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, // Trás
-        -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, // Esquerda
-        1, 0, 0,  1, 0, 0,  1, 0, 0,  1, 0, 0,  // Direita
-        0, 1, 0,  0, 1, 0,  0, 1, 0,  0, 1, 0,  // Topo
-        0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0  // Fundo
-    ]);
-
-    // Verifica quais faces são visíveis
-    const neighbors = getNeighbors(x, y, z);
-    const visibleFaces = {
-        front: !blocks[neighbors[4].key], // z + 1
-        back: !blocks[neighbors[5].key],  // z - 1
-        left: !blocks[neighbors[1].key],  // x - 1
-        right: !blocks[neighbors[0].key], // x + 1
-        top: !blocks[neighbors[2].key],   // y + 1
-        bottom: !blocks[neighbors[3].key] // y - 1
-    };
-
-    const newIndices = [];
-    const newUVs = [];
-    const newNormals = [];
-
-    // Adiciona apenas as faces visíveis
-    for (let i = 0; i < 6; i++) {
-        const faceKey = ['front', 'back', 'left', 'right', 'top', 'bottom'][i];
-        if (visibleFaces[faceKey]) {
-            for (let j = 0; j < 6; j++) {
-                newIndices.push(indicesBase[i * 6 + j]);
-            }
-            for (let j = 0; j < 8; j++) {
-                newUVs.push(uvsBase[i * 8 + j]);
-                newNormals.push(normalsBase[i * 12 + j * 3], normalsBase[i * 12 + j * 3 + 1], normalsBase[i * 12 + j * 3 + 2]);
-            }
-        }
-    }
-
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-    geometry.setAttribute('uv', new THREE.Float32BufferAttribute(newUVs, 2));
-    geometry.setAttribute('normal', new THREE.Float32BufferAttribute(newNormals, 3));
-    geometry.setIndex(newIndices);
-    geometry.computeVertexNormals(); // Recalcula normais para iluminação correta
-    return geometry;
-}
-
-function updateBlockMeshes() {
+function createOptimizedBlocks(blocks, material) {
     Object.keys(blocks).forEach(key => {
-        const block = blocks[key];
-        if (block.mesh) {
-            scene.remove(block.mesh);
-            block.mesh.geometry.dispose();
-        }
-        const geometry = createBlockGeometry(block.x, block.y, block.z);
-        block.mesh = new THREE.Mesh(geometry, block.material);
-        block.mesh.position.set(block.x * BLOCK_SIZE, block.y * BLOCK_SIZE, block.z * BLOCK_SIZE);
-        block.mesh.castShadow = true;
-        block.mesh.receiveShadow = true;
-        scene.add(block.mesh);
-    });
-}
-
-function updateNeighborBlocks(x, y, z) {
-    const neighbors = getNeighbors(x, y, z);
-    neighbors.forEach(neighbor => {
-        if (blocks[neighbor.key]) {
-            scene.remove(blocks[neighbor.key].mesh);
-            blocks[neighbor.key].mesh.geometry.dispose();
-            const geometry = createBlockGeometry(blocks[neighbor.key].x, blocks[neighbor.key].y, blocks[neighbor.key].z);
-            blocks[neighbor.key].mesh = new THREE.Mesh(geometry, blocks[neighbor.key].material);
-            blocks[neighbor.key].mesh.position.set(
-                blocks[neighbor.key].x * BLOCK_SIZE,
-                blocks[neighbor.key].y * BLOCK_SIZE,
-                blocks[neighbor.key].z * BLOCK_SIZE
-            );
-            blocks[neighbor.key].mesh.castShadow = true;
-            blocks[neighbor.key].mesh.receiveShadow = true;
-            scene.add(blocks[neighbor.key].mesh);
+        if (!blocks[key].mesh) {
+            const { x, y, z } = blocks[key];
+            const geometry = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+            const block = new THREE.Mesh(geometry, material);
+            block.position.set(x * BLOCK_SIZE, y * BLOCK_SIZE, z * BLOCK_SIZE);
+            block.castShadow = true;
+            block.receiveShadow = true;
+            scene.add(block);
+            blocks[key].mesh = block;
         }
     });
 }
@@ -438,12 +319,12 @@ function getTargetBlock(action) {
 
         if (action === 'place') {
             const newPos = blockPos.add(normal.multiplyScalar(BLOCK_SIZE));
-            return { x: Math.round(newPos.x / BLOCK_SIZE), y: Math.round(newPos.y / BLOCK_SIZE), z: Math.round(newPos.z / BLOCK_SIZE) };
+            return { x: Math.round(newPos.x), y: Math.round(newPos.y), z: Math.round(newPos.z) };
         } else if (action === 'break' || action === 'outline' || action === 'pick') {
             return {
-                x: Math.round(blockPos.x / BLOCK_SIZE),
-                y: Math.round(blockPos.y / BLOCK_SIZE),
-                z: Math.round(blockPos.z / BLOCK_SIZE),
+                x: Math.round(blockPos.x),
+                y: Math.round(blockPos.y),
+                z: Math.round(blockPos.z),
                 faceNormal: normal,
                 material: intersect.object.material
             };
@@ -459,7 +340,7 @@ function updateOutline() {
     if (target) {
         const block = blocks[`${target.x},${target.y},${target.z}`];
         if (block && block.mesh) {
-            const geometry = new THREE.EdgesGeometry(createBlockGeometry(block.x, block.y, block.z));
+            const geometry = new THREE.EdgesGeometry(block.mesh.geometry);
             const material = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 1 });
             outline = new THREE.LineSegments(geometry, material);
             outline.position.copy(block.mesh.position);
@@ -483,9 +364,8 @@ function placeBlock() {
                 blockMaterial = new THREE.MeshStandardMaterial({ map: lampblockTexture });
             }
 
-            blocks[key] = { x: target.x, y: target.y, z: target.z, material: blockMaterial };
-            updateBlockMeshes();
-            updateNeighborBlocks(target.x, target.y, target.z);
+            blocks[key] = { x: target.x, y: target.y, z: target.z };
+            createOptimizedBlocks(blocks, blockMaterial);
         }
     }
 }
@@ -496,9 +376,7 @@ function breakBlock() {
         const key = `${target.x},${target.y},${target.z}`;
         if (blocks[key] && blocks[key].mesh) {
             scene.remove(blocks[key].mesh);
-            blocks[key].mesh.geometry.dispose();
             delete blocks[key];
-            updateNeighborBlocks(target.x, target.y, target.z);
         }
     }
 }
@@ -536,37 +414,33 @@ function checkCollision() {
     };
 
     let onGround = false;
-    const nearbyBlocks = Object.keys(blocks).filter(key => {
-        const [x, y, z] = key.split(',').map(Number);
-        return Math.abs(x - player.position.x / BLOCK_SIZE) <= 2 &&
-               Math.abs(y - player.position.y / BLOCK_SIZE) <= 2 &&
-               Math.abs(z - player.position.z / BLOCK_SIZE) <= 2;
-    });
 
-    for (const key of nearbyBlocks) {
+    for (const key in blocks) {
         const block = blocks[key];
         const blockBox = {
             minX: block.x * BLOCK_SIZE - BLOCK_SIZE / 2,
             maxX: block.x * BLOCK_SIZE + BLOCK_SIZE / 2,
-            minY: block.y * BLOCK_SIZE - BLOCK_SIZE / 2,
-            maxY: block.y * BLOCK_SIZE + BLOCK_SIZE / 2,
+            minY: block.y * BLOCK_SIZE - BLOCK_SIZE / 2, // Ajustado para centro do bloco
+            maxY: block.y * BLOCK_SIZE + BLOCK_SIZE / 2, // Ajustado para centro do bloco
             minZ: block.z * BLOCK_SIZE - BLOCK_SIZE / 2,
             maxZ: block.z * BLOCK_SIZE + BLOCK_SIZE / 2
         };
 
+        // Colisão vertical
         if (playerBox.minX < blockBox.maxX && playerBox.maxX > blockBox.minX &&
             playerBox.minZ < blockBox.maxZ && playerBox.maxZ > blockBox.minZ) {
             if (velocity.y <= 0 && playerBox.minY <= blockBox.maxY && playerBox.maxY > blockBox.minY) {
-                player.position.y = blockBox.maxY;
+                player.position.y = blockBox.maxY; // Fica exatamente em cima do bloco
                 velocity.y = 0;
                 canJump = true;
                 onGround = true;
             } else if (velocity.y > 0 && playerBox.maxY >= blockBox.minY && playerBox.minY < blockBox.maxY) {
-                player.position.y = blockBox.minY - PLAYER_HEIGHT;
+                player.position.y = blockBox.minY - PLAYER_HEIGHT; // Para ao bater a cabeça
                 velocity.y = 0;
             }
         }
 
+        // Colisão horizontal
         if (playerBox.minY < blockBox.maxY && playerBox.maxY > blockBox.minY) {
             if (moveForward || moveBackward || moveLeft || moveRight) {
                 if (playerBox.minX < blockBox.maxX && playerBox.maxX > blockBox.minX &&
@@ -584,8 +458,9 @@ function checkCollision() {
         }
     }
 
+    // Chão base (quando não há blocos)
     if (!onGround && player.position.y <= BLOCK_SIZE) {
-        player.position.y = BLOCK_SIZE;
+        player.position.y = BLOCK_SIZE; // Garante que fica no topo do chão base
         velocity.y = 0;
         canJump = true;
     }
@@ -635,16 +510,19 @@ function toggleControlMode() {
     const modeButton = document.getElementById('mode-button');
     modeButton.innerHTML = controlMode === 'keyboard' ? '<i class="fas fa-keyboard"></i>' : '<i class="fas fa-mobile-alt"></i>';
     const touchControls = document.getElementById('touch-controls');
-    const cameraModeButton = document.getElementById('camera-mode-button');
+    const cameraModeButton = document.getElementById('camera-mode-button'); // Modificado: referência ao botão de câmera
     
+    // Mostrar/esconder controles de toque
     touchControls.style.display = controlMode === 'mobile' ? 'block' : 'none';
     
+    // Mostrar/esconder botão de troca de câmera
     if (controlMode === 'mobile') {
         cameraModeButton.classList.add('active');
     } else {
         cameraModeButton.classList.remove('active');
     }
     
+    // Resetar movimento
     moveForward = false;
     moveBackward = false;
     moveLeft = false;
@@ -858,7 +736,6 @@ function setupTouchControls() {
         toggleInventory();
     });
 
-    let lastTouchTime = 0;
     document.addEventListener('touchstart', (event) => {
         if (controlMode === 'mobile' && !inventoryOpen && !optionsOpen && !sensitivityOpen && !fovOpen && !controlsOpen) {
             const touch = event.touches[0];
@@ -874,9 +751,6 @@ function setupTouchControls() {
 
     document.addEventListener('touchmove', (event) => {
         if (controlMode === 'mobile' && !inventoryOpen && !optionsOpen && !sensitivityOpen && !fovOpen && !controlsOpen) {
-            const now = performance.now();
-            if (now - lastTouchTime < 16) return;
-            lastTouchTime = now;
             const touch = event.touches[0];
             const movementX = (touch.clientX - touchStartX) * mouseSensitivity;
             const movementY = (touch.clientY - touchStartY) * mouseSensitivity;
@@ -1072,14 +946,7 @@ function getDirection() {
     if (angle >= -135 && angle < -45) return { text: 'Oeste', color: 'green' };
 }
 
-function animate(timestamp) {
-    const deltaTime = Math.min(timestamp - lastFrameTime, 100);
-    if (deltaTime < MIN_FRAME_TIME) {
-        requestAnimationFrame(animate);
-        return;
-    }
-    lastFrameTime = timestamp;
-
+function animate() {
     requestAnimationFrame(animate);
 
     if (cameraMode === 0) {
@@ -1088,8 +955,9 @@ function animate(timestamp) {
         player.rotation.y = cameraAngleY;
     }
 
-    velocity.y -= GRAVITY * (deltaTime / 16);
-    player.position.y += velocity.y * (deltaTime / 16);
+    // Aplicar gravidade
+    velocity.y -= GRAVITY;
+    player.position.y += velocity.y;
 
     const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(player.quaternion);
     direction.y = 0;
@@ -1107,14 +975,14 @@ function animate(timestamp) {
     else if (moveLeft) velocity.x = -currentSpeed;
     else velocity.x = 0;
 
-    player.position.x += velocity.x * Math.cos(player.rotation.y) * (deltaTime / 16) + velocity.z * Math.sin(player.rotation.y) * (deltaTime / 16);
-    player.position.z += velocity.z * Math.cos(player.rotation.y) * (deltaTime / 16) - velocity.x * Math.sin(player.rotation.y) * (deltaTime / 16);
+    player.position.x += velocity.x * Math.cos(player.rotation.y) + velocity.z * Math.sin(player.rotation.y);
+    player.position.z += velocity.z * Math.cos(player.rotation.y) - velocity.x * Math.sin(player.rotation.y);
 
     checkCollision();
 
     if (player.position.y < -10) {
         setTimeout(() => {
-            player.position.set(0, BLOCK_SIZE, 0);
+            player.position.set(0, BLOCK_SIZE, 0); // Volta ao topo do chão
             velocity.y = 0;
             canJump = true;
         }, 2000);
@@ -1126,19 +994,20 @@ function animate(timestamp) {
 
     if (!inventoryOpen && !optionsOpen && !sensitivityOpen && !fovOpen && !controlsOpen) updateOutline();
 
-    hudUpdateCounter++;
-    if (showFPS && hudUpdateCounter % 15 === 0) {
-        document.getElementById('fpsCounter').innerText = `FPS: ${Math.round(1000 / deltaTime)}`;
+    if (showFPS) {
+        document.getElementById('fpsCounter').innerText = `FPS: ${Math.round(1000 / (performance.now() - lastFrameTime))}`;
         const dir = getDirection();
         document.getElementById('direction').innerHTML = `<span style="color: ${dir.color}">${dir.text}</span>`;
         document.getElementById('positionX').innerText = `X: ${player.position.x.toFixed(2)}`;
         document.getElementById('positionY').innerText = `Y: ${player.position.y.toFixed(2)}`;
         document.getElementById('positionZ').innerText = `Z: ${player.position.z.toFixed(2)}`;
-        hudUpdateCounter = 0;
     }
+    lastFrameTime = performance.now();
 
     renderer.render(scene, camera);
 }
+
+let lastFrameTime = performance.now();
 
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
