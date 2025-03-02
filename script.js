@@ -142,7 +142,7 @@ function init() {
             blocks[key] = { x, y: 0, z, material: floorMaterial };
         }
     }
-    updateBlockMeshes(); // Inicializa os blocos com a otimização de faces
+    updateBlockMeshes(); // Inicializa os blocos com faces otimizadas
 
     setupEventListeners();
     setupTouchControls();
@@ -185,80 +185,93 @@ function getNeighbors(x, y, z) {
 }
 
 function createBlockGeometry(x, y, z) {
-    const geometry = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
-    const position = geometry.attributes.position;
+    const vertices = [
+        // Frente (0-3)
+        -0.5, -0.5,  0.5,  0.5, -0.5,  0.5,  0.5,  0.5,  0.5, -0.5,  0.5,  0.5,
+        // Trás (4-7)
+        -0.5, -0.5, -0.5,  0.5, -0.5, -0.5,  0.5,  0.5, -0.5, -0.5,  0.5, -0.5,
+        // Esquerda (8-11)
+        -0.5, -0.5, -0.5, -0.5, -0.5,  0.5, -0.5,  0.5,  0.5, -0.5,  0.5, -0.5,
+        // Direita (12-15)
+         0.5, -0.5, -0.5,  0.5, -0.5,  0.5,  0.5,  0.5,  0.5,  0.5,  0.5, -0.5,
+        // Topo (16-19)
+        -0.5,  0.5, -0.5,  0.5,  0.5, -0.5,  0.5,  0.5,  0.5, -0.5,  0.5,  0.5,
+        // Fundo (20-23)
+        -0.5, -0.5, -0.5,  0.5, -0.5, -0.5,  0.5, -0.5,  0.5, -0.5, -0.5,  0.5
+    ];
 
-    // Determina quais faces são visíveis
+    const indices = [
+        0, 1, 2, 0, 2, 3,       // Frente
+        4, 7, 6, 4, 6, 5,       // Trás
+        8, 9, 10, 8, 10, 11,    // Esquerda
+        12, 15, 14, 12, 14, 13, // Direita
+        16, 17, 18, 16, 18, 19, // Topo
+        20, 21, 22, 20, 22, 23  // Fundo
+    ];
+
+    const uvs = [
+        0, 0, 1, 0, 1, 1, 0, 1, // Frente
+        0, 0, 1, 0, 1, 1, 0, 1, // Trás
+        0, 0, 1, 0, 1, 1, 0, 1, // Esquerda
+        0, 0, 1, 0, 1, 1, 0, 1, // Direita
+        0, 0, 1, 0, 1, 1, 0, 1, // Topo
+        0, 0, 1, 0, 1, 1, 0, 1  // Fundo
+    ];
+
+    const normals = [
+        // Frente
+        0, 0, 1,  0, 0, 1,  0, 0, 1,  0, 0, 1,
+        // Trás
+        0, 0, -1,  0, 0, -1,  0, 0, -1,  0, 0, -1,
+        // Esquerda
+        -1, 0, 0,  -1, 0, 0,  -1, 0, 0,  -1, 0, 0,
+        // Direita
+        1, 0, 0,  1, 0, 0,  1, 0, 0,  1, 0, 0,
+        // Topo
+        0, 1, 0,  0, 1, 0,  0, 1, 0,  0, 1, 0,
+        // Fundo
+        0, -1, 0,  0, -1, 0,  0, -1, 0,  0, -1, 0
+    ];
+
     const neighbors = getNeighbors(x, y, z);
     const visibleFaces = {
-        right: !blocks[neighbors[0].key],
-        left: !blocks[neighbors[1].key],
-        top: !blocks[neighbors[2].key],
-        bottom: !blocks[neighbors[3].key],
-        front: !blocks[neighbors[4].key],
-        back: !blocks[neighbors[5].key]
+        front: !blocks[neighbors[4].key], // z + 1
+        back: !blocks[neighbors[5].key],  // z - 1
+        left: !blocks[neighbors[1].key],  // x - 1
+        right: !blocks[neighbors[0].key], // x + 1
+        top: !blocks[neighbors[2].key],   // y + 1
+        bottom: !blocks[neighbors[3].key] // y - 1
     };
 
-    // Remove faces não visíveis ajustando os triângulos
     const newVertices = [];
     const newIndices = [];
     const newUVs = [];
+    const newNormals = [];
     let indexOffset = 0;
 
-    // Ordem das faces em BoxGeometry: right, left, top, bottom, front, back
-    const faceIndices = [
-        [0, 1, 2, 2, 3, 0], // right
-        [4, 5, 6, 6, 7, 4], // left
-        [8, 9, 10, 10, 11, 8], // top
-        [12, 13, 14, 14, 15, 12], // bottom
-        [16, 17, 18, 18, 19, 16], // front
-        [20, 21, 22, 22, 23, 20] // back
-    ];
-
-    const faceVertices = [
-        [1, 3, 5, 7], // right
-        [0, 2, 4, 6], // left
-        [2, 3, 6, 7], // top
-        [0, 1, 4, 5], // bottom
-        [0, 1, 2, 3], // front
-        [4, 5, 6, 7]  // back
-    ];
-
-    const faceUVs = [
-        [0, 0, 1, 0, 1, 1, 0, 1], // right
-        [1, 0, 0, 0, 0, 1, 1, 1], // left
-        [0, 0, 1, 0, 1, 1, 0, 1], // top
-        [0, 0, 1, 0, 1, 1, 0, 1], // bottom
-        [0, 0, 1, 0, 1, 1, 0, 1], // front
-        [1, 0, 0, 0, 0, 1, 1, 1]  // back
-    ];
-
+    const faceOrder = ['front', 'back', 'left', 'right', 'top', 'bottom'];
     for (let i = 0; i < 6; i++) {
-        const faceKey = ['right', 'left', 'top', 'bottom', 'front', 'back'][i];
-        if (visibleFaces[faceKey]) {
-            const vertexIndices = faceVertices[i];
+        if (visibleFaces[faceOrder[i]]) {
             for (let j = 0; j < 4; j++) {
-                const idx = vertexIndices[j];
-                newVertices.push(
-                    position.array[idx * 3],
-                    position.array[idx * 3 + 1],
-                    position.array[idx * 3 + 2]
-                );
-                newUVs.push(faceUVs[i][j * 2], faceUVs[i][j * 2 + 1]);
+                const vertIdx = i * 4 + j;
+                newVertices.push(vertices[vertIdx * 3], vertices[vertIdx * 3 + 1], vertices[vertIdx * 3 + 2]);
+                newUVs.push(uvs[vertIdx * 2], uvs[vertIdx * 2 + 1]);
+                newNormals.push(normals[vertIdx * 3], normals[vertIdx * 3 + 1], normals[vertIdx * 3 + 2]);
             }
-            newIndices.push(
-                indexOffset, indexOffset + 1, indexOffset + 2,
-                indexOffset + 2, indexOffset + 3, indexOffset
-            );
+            for (let j = 0; j < 6; j++) {
+                newIndices.push(indices[i * 6 + j] % 4 + indexOffset);
+            }
             indexOffset += 4;
         }
     }
 
-    const optimizedGeometry = new THREE.BufferGeometry();
-    optimizedGeometry.setAttribute('position', new THREE.Float32BufferAttribute(newVertices, 3));
-    optimizedGeometry.setAttribute('uv', new THREE.Float32BufferAttribute(newUVs, 2));
-    optimizedGeometry.setIndex(newIndices);
-    return optimizedGeometry;
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(newVertices, 3));
+    geometry.setAttribute('uv', new THREE.Float32BufferAttribute(newUVs, 2));
+    geometry.setAttribute('normal', new THREE.Float32BufferAttribute(newNormals, 3));
+    geometry.setIndex(newIndices);
+    geometry.computeVertexNormals(); // Garante normais corretas para iluminação
+    return geometry;
 }
 
 function updateBlockMeshes() {
@@ -295,6 +308,98 @@ function updateNeighborBlocks(x, y, z) {
             scene.add(blocks[neighbor.key].mesh);
         }
     });
+}
+
+function init() {
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87CEEB);
+
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, PLAYER_HEIGHT / 2, 0);
+
+    const canvas = document.getElementById('game-canvas');
+    renderer = new THREE.WebGLRenderer({ antialias: true, canvas: canvas });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    scene.add(ambientLight);
+
+    const sunLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    sunLight.position.set(20, 30, 20);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 1024;
+    sunLight.shadow.mapSize.height = 1024;
+    sunLight.shadow.camera.near = 0.5;
+    sunLight.shadow.camera.far = 100;
+    sunLight.shadow.camera.left = -20;
+    sunLight.shadow.camera.right = 20;
+    sunLight.shadow.camera.top = 20;
+    sunLight.shadow.camera.bottom = -20;
+    scene.add(sunLight);
+
+    const sunGeometry = new THREE.PlaneGeometry(5, 5);
+    const sunMaterial = new THREE.MeshBasicMaterial({ color: 0xffffaa, side: THREE.DoubleSide });
+    const sun = new THREE.Mesh(sunGeometry, sunMaterial);
+    sun.position.set(20, 30, 20);
+    sun.lookAt(0, 0, 0);
+    scene.add(sun);
+
+    player = new THREE.Object3D();
+    player.position.set(0, BLOCK_SIZE, 0);
+    scene.add(player);
+    player.add(camera);
+
+    const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0xE5C39A });
+    torso = createBodyPart(new THREE.BoxGeometry(0.6, 0.8, 0.3), bodyMaterial, 0, 0.4, 0);
+    leftLeg = createBodyPart(new THREE.BoxGeometry(0.25, 0.8, 0.25), bodyMaterial, -0.175, 0, 0);
+    rightLeg = createBodyPart(new THREE.BoxGeometry(0.25, 0.8, 0.25), bodyMaterial, 0.175, 0, 0);
+    torso.visible = false;
+    leftLeg.visible = false;
+    rightLeg.visible = false;
+    torso.castShadow = true;
+    leftLeg.castShadow = true;
+    rightLeg.castShadow = true;
+
+    const armGeometry = new THREE.BoxGeometry(0.8, 0.2, 0.2);
+    const armMaterial = new THREE.MeshStandardMaterial({ color: 0xE5C39A });
+    arm = new THREE.Mesh(armGeometry, armMaterial);
+    arm.position.set(0.4, -0.3, -0.2);
+    arm.rotation.y = -Math.PI / 2;
+    arm.castShadow = true;
+    arm.receiveShadow = true;
+    camera.add(arm);
+    currentHandItem = arm;
+
+    const floorMaterial = new THREE.MeshStandardMaterial({ map: grassTexture });
+    for (let x = -GRID_SIZE / 2; x < GRID_SIZE / 2; x++) {
+        for (let z = -GRID_SIZE / 2; z < GRID_SIZE / 2; z++) {
+            const key = `${x},${0},${z}`;
+            blocks[key] = { x, y: 0, z, material: floorMaterial };
+        }
+    }
+    updateBlockMeshes();
+
+    setupEventListeners();
+    setupTouchControls();
+
+    document.getElementById('mode-button').addEventListener('click', toggleControlMode);
+    document.getElementById('mode-button').addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleControlMode();
+    });
+
+    document.getElementById('camera-mode-button').addEventListener('click', toggleCameraMode);
+    document.getElementById('camera-mode-button').addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleCameraMode();
+    });
+
+    animate(performance.now());
 }
 
 function switchHandItem(itemType) {
