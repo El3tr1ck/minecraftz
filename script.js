@@ -146,7 +146,7 @@ function init() {
         for (let z = -GRID_SIZE / 2; z < GRID_SIZE / 2; z++) {
             const key = `${x},${0},${z}`;
             blocks[key] = { x, y: 0, z };
-            createBlock(key, floorMaterial); // Criar blocos individualmente
+            createBlock(key, floorMaterial);
         }
     }
 
@@ -163,7 +163,7 @@ function init() {
         });
     } else console.error('Botão mode-button não encontrado!');
 
-    const cameraModeButton = document.getElementById('camera-mode-button');
+    const camera BID="camera-mode-button');
     if (cameraModeButton) {
         cameraModeButton.addEventListener('click', toggleCameraMode);
         cameraModeButton.addEventListener('touchstart', (e) => {
@@ -339,7 +339,7 @@ function updateBodyVisibility() {
 
 function getTargetBlock(action) {
     const raycaster = new THREE.Raycaster();
-    raycaster.setFromCamera(new THREE.Vector2(0, 0), camera); // Corrigido erro de sintaxe
+    raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
     const intersects = raycaster.intersectObjects(Object.values(blocks).map(b => b.mesh).filter(Boolean));
     if (intersects.length > 0) {
         const intersect = intersects[0];
@@ -459,6 +459,18 @@ function checkCollision() {
     };
 
     let onGround = false;
+    let collidedX = false;
+    let collidedZ = false;
+
+    // Próxima posição proposta com base na velocidade
+    const nextPlayerBox = {
+        minX: player.position.x + velocity.x - PLAYER_WIDTH / 2,
+        maxX: player.position.x + velocity.x + PLAYER_WIDTH / 2,
+        minY: player.position.y + velocity.y,
+        maxY: player.position.y + velocity.y + PLAYER_HEIGHT,
+        minZ: player.position.z + velocity.z - PLAYER_WIDTH / 2,
+        maxZ: player.position.z + velocity.z + PLAYER_WIDTH / 2
+    };
 
     for (const key in blocks) {
         const block = blocks[key];
@@ -471,9 +483,10 @@ function checkCollision() {
             maxZ: block.z * BLOCK_SIZE + BLOCK_SIZE / 2
         };
 
+        // Colisão vertical
         if (playerBox.minX < blockBox.maxX && playerBox.maxX > blockBox.minX &&
             playerBox.minZ < blockBox.maxZ && playerBox.maxZ > blockBox.minZ) {
-            if (velocity.y <= 0 && playerBox.minY <= blockBox.maxY && playerBox.maxY > blockBox.minY) {
+            if (velocity.y <= 0 && nextPlayerBox.minY <= blockBox.maxY && playerBox.maxY > blockBox.minY) {
                 const isAboveBlock = playerBox.minX < blockBox.maxX && playerBox.maxX > blockBox.minX &&
                                     playerBox.minZ < blockBox.maxZ && playerBox.maxZ > blockBox.minZ &&
                                     playerBox.minY >= blockBox.maxY - 0.1;
@@ -483,30 +496,41 @@ function checkCollision() {
                     velocity.y = 0;
                     canJump = true;
                     onGround = true;
-                } else if (!autoClimb) {
+                } else if (!autoClimb && nextPlayerBox.minY <= blockBox.maxY) {
                     player.position.y = blockBox.maxY;
                     velocity.y = 0;
                     canJump = true;
                     onGround = true;
                 }
-            } else if (velocity.y > 0 && playerBox.maxY >= blockBox.minY && playerBox.minY < blockBox.maxY) {
+            } else if (velocity.y > 0 && nextPlayerBox.maxY >= blockBox.minY && playerBox.minY < blockBox.maxY) {
                 player.position.y = blockBox.minY - PLAYER_HEIGHT;
                 velocity.y = 0;
             }
         }
 
-        if (playerBox.minY < blockBox.maxY && playerBox.maxY > blockBox.minY) {
-            if (moveForward || moveBackward || moveLeft || moveRight) {
-                if (playerBox.minX < blockBox.maxX && playerBox.maxX > blockBox.minX &&
-                    playerBox.minZ < blockBox.maxZ && playerBox.maxZ > blockBox.minZ) {
-                    const nextX = player.position.x + velocity.x;
-                    const nextZ = player.position.z + velocity.z;
-
-                    if (nextX - PLAYER_WIDTH / 2 < blockBox.maxX && nextX + PLAYER_WIDTH / 2 > blockBox.minX &&
-                        nextZ - PLAYER_WIDTH / 2 < blockBox.maxZ && nextZ + PLAYER_WIDTH / 2 > blockBox.minZ) {
-                        velocity.x = 0;
-                        velocity.z = 0;
+        // Colisão horizontal
+        if (nextPlayerBox.minY < blockBox.maxY && nextPlayerBox.maxY > blockBox.minY) {
+            if (nextPlayerBox.minX < blockBox.maxX && nextPlayerBox.maxX > blockBox.minX &&
+                nextPlayerBox.minZ < blockBox.maxZ && nextPlayerBox.maxZ > blockBox.minZ) {
+                // Colisão no eixo X
+                if (velocity.x !== 0) {
+                    if (velocity.x > 0) {
+                        player.position.x = blockBox.minX - PLAYER_WIDTH / 2;
+                    } else if (velocity.x < 0) {
+                        player.position.x = blockBox.maxX + PLAYER_WIDTH / 2;
                     }
+                    velocity.x = 0;
+                    collidedX = true;
+                }
+                // Colisão no eixo Z
+                if (velocity.z !== 0) {
+                    if (velocity.z > 0) {
+                        player.position.z = blockBox.minZ - PLAYER_WIDTH / 2;
+                    } else if (velocity.z < 0) {
+                        player.position.z = blockBox.maxZ + PLAYER_WIDTH / 2;
+                    }
+                    velocity.z = 0;
+                    collidedZ = true;
                 }
             }
         }
@@ -516,7 +540,10 @@ function checkCollision() {
         player.position.y = BLOCK_SIZE;
         velocity.y = 0;
         canJump = true;
+        onGround = true;
     }
+
+    return { onGround, collidedX, collidedZ };
 }
 
 function lockPointer() {
@@ -1098,9 +1125,10 @@ function animate() {
         player.rotation.y = cameraAngleY;
     }
 
+    // Aplicar gravidade
     velocity.y -= GRAVITY;
-    player.position.y += velocity.y;
 
+    // Calcular movimento horizontal
     const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(player.quaternion);
     direction.y = 0;
     direction.normalize();
@@ -1117,11 +1145,25 @@ function animate() {
     else if (moveLeft) velocity.x = -currentSpeed;
     else velocity.x = 0;
 
-    player.position.x += velocity.x * Math.cos(player.rotation.y) + velocity.z * Math.sin(player.rotation.y);
-    player.position.z += velocity.z * Math.cos(player.rotation.y) - velocity.x * Math.sin(player.rotation.y);
+    // Aplicar movimento horizontal com rotação
+    const moveX = velocity.x * Math.cos(player.rotation.y) + velocity.z * Math.sin(player.rotation.y);
+    const moveZ = velocity.z * Math.cos(player.rotation.y) - velocity.x * Math.sin(player.rotation.y);
 
-    checkCollision();
+    // Atualizar posição temporariamente para verificar colisão
+    const oldPosition = player.position.clone();
+    player.position.x += moveX;
+    player.position.z += moveZ;
+    player.position.y += velocity.y;
 
+    // Verificar colisão e ajustar posição
+    const collisionResult = checkCollision();
+    if (!collisionResult.onGround) canJump = false;
+
+    // Se houve colisão horizontal, reverter o movimento no eixo correspondente
+    if (collisionResult.collidedX) player.position.x = oldPosition.x;
+    if (collisionResult.collidedZ) player.position.z = oldPosition.z;
+
+    // Verificar queda ou teletransporte
     if (player.position.y < -10) {
         setTimeout(() => {
             player.position.set(0, BLOCK_SIZE, 0);
@@ -1172,4 +1214,4 @@ window.addEventListener('resize', () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-window.addEventListener('load', init); // Garantir que init seja chamado após o DOM carregar
+window.addEventListener('load', init);
