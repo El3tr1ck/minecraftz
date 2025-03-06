@@ -44,13 +44,13 @@ let awaitingKey = null;
 let touchStartX = null, touchStartY = null;
 let isLeftMouseDown = false;
 let isRightMouseDown = false;
-let pressDelay = 100; // Delay padrão em ms para pressionar
-let fastPressDelay = 100; // Delay padrão para construção rápida
-let autoClimb = true; // Subir blocos automaticamente ativado por padrão
-let fastBuild = false; // Construção rápida desativada por padrão
-let buildBelow = false; // Colocar blocos abaixo sem pular desativado por padrão
-let lastBreakTime = 0; // Timestamp da última quebra
-let lastPlaceTime = 0; // Timestamp da última colocação
+let pressDelay = 100;
+let fastPressDelay = 100;
+let autoClimb = true;
+let fastBuild = false;
+let buildBelow = false;
+let lastBreakTime = 0;
+let lastPlaceTime = 0;
 
 const textureLoader = new THREE.TextureLoader();
 const grassTexture = textureLoader.load('img/bloco_de_grama.png', 
@@ -325,7 +325,7 @@ function updateBodyVisibility() {
 
 function getTargetBlock(action) {
     const raycaster = new THREE.Raycaster();
-    raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+    raycaster.setFromCamera(new THREE.Vector2(0, 0 RosTHREE.Vector2(0, 0), camera);
     const intersects = raycaster.intersectObjects(Object.values(blocks).map(b => b.mesh).filter(Boolean));
     if (intersects.length > 0) {
         const intersect = intersects[0];
@@ -461,7 +461,12 @@ function checkCollision() {
         if (playerBox.minX < blockBox.maxX && playerBox.maxX > blockBox.minX &&
             playerBox.minZ < blockBox.maxZ && playerBox.maxZ > blockBox.minZ) {
             if (velocity.y <= 0 && playerBox.minY <= blockBox.maxY && playerBox.maxY > blockBox.minY) {
-                if (autoClimb && (blockBox.maxY - playerBox.minY) <= BLOCK_SIZE) {
+                // Verifica se o jogador está diretamente acima do bloco
+                const isAboveBlock = playerBox.minX < blockBox.maxX && playerBox.maxX > blockBox.minX &&
+                                    playerBox.minZ < blockBox.maxZ && playerBox.maxZ > blockBox.minZ &&
+                                    playerBox.minY >= blockBox.maxY - 0.1; // Pequena tolerância
+
+                if (autoClimb && isAboveBlock && (blockBox.maxY - (player.position.y - PLAYER_HEIGHT)) <= BLOCK_SIZE) {
                     player.position.y = blockBox.maxY;
                     velocity.y = 0;
                     canJump = true;
@@ -603,7 +608,7 @@ function onOptionsClick(event) {
             optionsOpen = false;
             document.getElementById('options').style.display = 'none';
             lockPointer();
-        } else if (action === 'advanced') {
+        } else ifa class="option-button" data-action="advanced"><i class="fas fa-tools"></i> Configurações Avançadas</button>
             document.getElementById('options').style.display = 'none';
             document.getElementById('advanced-panel').style.display = 'block';
             advancedOpen = true;
@@ -1093,7 +1098,7 @@ let lastFrameTime = performance.now();
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(window.innerWidth, window.inner pawHeight);
 });
 
 init();
