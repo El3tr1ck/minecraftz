@@ -2,7 +2,7 @@
 const SPRINT_SPEED = 0.2;
 const NORMAL_SPEED = 0.1;
 const DOUBLE_CLICK_TIME = 300;
-const GRAVITY = 0.015; // Gravidade suave para o personagem
+const GRAVITY = 0.015;
 const BLOCK_SIZE = 1;
 const GRID_SIZE = 20;
 const CAMERA_DISTANCE = 5;
@@ -22,8 +22,7 @@ let showFPS = true;
 let blocks = {};
 let inventoryOpen = false;
 let optionsOpen = false;
-let sensitivityOpen = false;
-let fovOpen = false;
+let advancedOpen = false;
 let controlsOpen = false;
 let outline = null;
 let mouseSensitivity = 0.001;
@@ -45,6 +44,13 @@ let awaitingKey = null;
 let touchStartX = null, touchStartY = null;
 let isLeftMouseDown = false;
 let isRightMouseDown = false;
+let pressDelay = 100; // Delay padrão em ms para pressionar
+let fastPressDelay = 100; // Delay padrão para construção rápida
+let autoClimb = true; // Subir blocos automaticamente ativado por padrão
+let fastBuild = false; // Construção rápida desativada por padrão
+let buildBelow = false; // Colocar blocos abaixo sem pular desativado por padrão
+let lastBreakTime = 0; // Timestamp da última quebra
+let lastPlaceTime = 0; // Timestamp da última colocação
 
 const textureLoader = new THREE.TextureLoader();
 const grassTexture = textureLoader.load('img/bloco_de_grama.png', 
@@ -76,7 +82,7 @@ function init() {
     scene.background = new THREE.Color(0x87CEEB);
 
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, PLAYER_HEIGHT / 2, 0); // Câmera na metade da altura do jogador
+    camera.position.set(0, PLAYER_HEIGHT / 2, 0);
 
     const canvas = document.getElementById('game-canvas');
     renderer = new THREE.WebGLRenderer({ antialias: true, canvas: canvas });
@@ -109,7 +115,7 @@ function init() {
     scene.add(sun);
 
     player = new THREE.Object3D();
-    player.position.set(0, BLOCK_SIZE, 0); // Começa no topo do chão (y = 1)
+    player.position.set(0, BLOCK_SIZE, 0);
     scene.add(player);
     player.add(camera);
 
@@ -160,7 +166,6 @@ function init() {
         toggleCameraMode();
     });
 
-    // Novo: Adicionar evento ao botão de opções
     document.getElementById('options-button').addEventListener('click', toggleOptions);
     document.getElementById('options-button').addEventListener('touchstart', (e) => {
         e.preventDefault();
@@ -336,7 +341,8 @@ function getTargetBlock(action) {
                 y: Math.round(blockPos.y),
                 z: Math.round(blockPos.z),
                 faceNormal: normal,
-                material: intersect.object.material
+                material: intersect.object.material,
+                position: blockPos
             };
         }
     }
@@ -361,26 +367,40 @@ function updateOutline() {
 }
 
 function placeBlock() {
+    const currentTime = performance.now();
+    const delay = fastBuild ? fastPressDelay : pressDelay;
+    if (currentTime - lastPlaceTime < delay) return;
+
     const target = getTargetBlock('place');
     if (target && selectedItem !== 'arm') {
         const key = `${target.x},${target.y},${target.z}`;
         if (!blocks[key]) {
             let blockMaterial;
-            if (selectedItem === 'grass') {
-                blockMaterial = new THREE.MeshStandardMaterial({ map: grassTexture });
-            } else if (selectedItem === 'stone') {
-                blockMaterial = new THREE.MeshStandardMaterial({ map: stoneTexture });
-            } else if (selectedItem === 'lampblock') {
-                blockMaterial = new THREE.MeshStandardMaterial({ map: lampblockTexture });
-            }
+            if (selectedItem === 'grass') blockMaterial = new THREE.MeshStandardMaterial({ map: grassTexture });
+            else if (selectedItem === 'stone') blockMaterial = new THREE.MeshStandardMaterial({ map: stoneTexture });
+            else if (selectedItem === 'lampblock') blockMaterial = new THREE.MeshStandardMaterial({ map: lampblockTexture });
 
             blocks[key] = { x: target.x, y: target.y, z: target.z };
             createOptimizedBlocks(blocks, blockMaterial);
+
+            if (fastBuild && buildBelow) {
+                const playerFeetY = Math.round(player.position.y - BLOCK_SIZE);
+                if (target.y === playerFeetY && Math.abs(target.x - player.position.x) < PLAYER_WIDTH / 2 && Math.abs(target.z - player.position.z) < PLAYER_WIDTH / 2) {
+                    player.position.y += BLOCK_SIZE;
+                    velocity.y = 0;
+                    canJump = true;
+                }
+            }
         }
     }
+    lastPlaceTime = currentTime;
 }
 
 function breakBlock() {
+    const currentTime = performance.now();
+    const delay = fastBuild ? fastPressDelay : pressDelay;
+    if (currentTime - lastBreakTime < delay) return;
+
     const target = getTargetBlock('break');
     if (target) {
         const key = `${target.x},${target.y},${target.z}`;
@@ -389,6 +409,7 @@ function breakBlock() {
             delete blocks[key];
         }
     }
+    lastBreakTime = currentTime;
 }
 
 function pickBlock() {
@@ -430,8 +451,8 @@ function checkCollision() {
         const blockBox = {
             minX: block.x * BLOCK_SIZE - BLOCK_SIZE / 2,
             maxX: block.x * BLOCK_SIZE + BLOCK_SIZE / 2,
-            minY: block.y * BLOCK_SIZE - BLOCK_SIZE / 2, // Ajustado para centro do bloco
-            maxY: block.y * BLOCK_SIZE + BLOCK_SIZE / 2, // Ajustado para centro do bloco
+            minY: block.y * BLOCK_SIZE - BLOCK_SIZE / 2,
+            maxY: block.y * BLOCK_SIZE + BLOCK_SIZE / 2,
             minZ: block.z * BLOCK_SIZE - BLOCK_SIZE / 2,
             maxZ: block.z * BLOCK_SIZE + BLOCK_SIZE / 2
         };
@@ -440,12 +461,19 @@ function checkCollision() {
         if (playerBox.minX < blockBox.maxX && playerBox.maxX > blockBox.minX &&
             playerBox.minZ < blockBox.maxZ && playerBox.maxZ > blockBox.minZ) {
             if (velocity.y <= 0 && playerBox.minY <= blockBox.maxY && playerBox.maxY > blockBox.minY) {
-                player.position.y = blockBox.maxY; // Fica exatamente em cima do bloco
-                velocity.y = 0;
-                canJump = true;
-                onGround = true;
+                if (autoClimb && (blockBox.maxY - playerBox.minY) <= BLOCK_SIZE) {
+                    player.position.y = blockBox.maxY;
+                    velocity.y = 0;
+                    canJump = true;
+                    onGround = true;
+                } else if (!autoClimb) {
+                    player.position.y = blockBox.maxY;
+                    velocity.y = 0;
+                    canJump = true;
+                    onGround = true;
+                }
             } else if (velocity.y > 0 && playerBox.maxY >= blockBox.minY && playerBox.minY < blockBox.maxY) {
-                player.position.y = blockBox.minY - PLAYER_HEIGHT; // Para ao bater a cabeça
+                player.position.y = blockBox.minY - PLAYER_HEIGHT;
                 velocity.y = 0;
             }
         }
@@ -468,16 +496,15 @@ function checkCollision() {
         }
     }
 
-    // Chão base (quando não há blocos)
     if (!onGround && player.position.y <= BLOCK_SIZE) {
-        player.position.y = BLOCK_SIZE; // Garante que fica no topo do chão base
+        player.position.y = BLOCK_SIZE;
         velocity.y = 0;
         canJump = true;
     }
 }
 
 function lockPointer() {
-    if (!inventoryOpen && !optionsOpen && !sensitivityOpen && !fovOpen && !controlsOpen && controlMode === 'keyboard') {
+    if (!inventoryOpen && !optionsOpen && !advancedOpen && !controlsOpen && controlMode === 'keyboard') {
         document.body.requestPointerLock();
     }
 }
@@ -504,12 +531,22 @@ function toggleOptions() {
         unlockPointer();
         inventoryOpen = false;
         document.getElementById('inventory').style.display = 'none';
-        sensitivityOpen = false;
-        fovOpen = false;
+        advancedOpen = false;
         controlsOpen = false;
-        document.getElementById('sensitivity-panel').style.display = 'none';
-        document.getElementById('fov-panel').style.display = 'none';
+        document.getElementById('advanced-panel').style.display = 'none';
         document.getElementById('controls-panel').style.display = 'none';
+    } else {
+        lockPointer();
+    }
+}
+
+function toggleAdvanced() {
+    advancedOpen = !advancedOpen;
+    document.getElementById('advanced-panel').style.display = advancedOpen ? 'block' : 'none';
+    if (advancedOpen) {
+        unlockPointer();
+        optionsOpen = false;
+        document.getElementById('options').style.display = 'none';
     } else {
         lockPointer();
     }
@@ -566,15 +603,10 @@ function onOptionsClick(event) {
             optionsOpen = false;
             document.getElementById('options').style.display = 'none';
             lockPointer();
-        } else if (action === 'sensitivity') {
+        } else if (action === 'advanced') {
             document.getElementById('options').style.display = 'none';
-            document.getElementById('sensitivity-panel').style.display = 'block';
-            sensitivityOpen = true;
-            optionsOpen = false;
-        } else if (action === 'fov') {
-            document.getElementById('options').style.display = 'none';
-            document.getElementById('fov-panel').style.display = 'block';
-            fovOpen = true;
+            document.getElementById('advanced-panel').style.display = 'block';
+            advancedOpen = true;
             optionsOpen = false;
         } else if (action === 'controls') {
             document.getElementById('options').style.display = 'none';
@@ -588,12 +620,10 @@ function onOptionsClick(event) {
 function onPanelClick(event) {
     const button = event.target.closest('.back-button');
     if (button) {
-        document.getElementById('sensitivity-panel').style.display = 'none';
-        document.getElementById('fov-panel').style.display = 'none';
+        document.getElementById('advanced-panel').style.display = 'none';
         document.getElementById('controls-panel').style.display = 'none';
         document.getElementById('options').style.display = 'block';
-        sensitivityOpen = false;
-        fovOpen = false;
+        advancedOpen = false;
         controlsOpen = false;
         optionsOpen = true;
         awaitingKey = null;
@@ -732,7 +762,7 @@ function setupTouchControls() {
     });
 
     document.addEventListener('touchstart', (event) => {
-        if (controlMode === 'mobile' && !inventoryOpen && !optionsOpen && !sensitivityOpen && !fovOpen && !controlsOpen) {
+        if (controlMode === 'mobile' && !inventoryOpen && !optionsOpen && !advancedOpen && !controlsOpen) {
             const touch = event.touches[0];
             touchStartX = touch.clientX;
             touchStartY = touch.clientY;
@@ -740,7 +770,7 @@ function setupTouchControls() {
     });
 
     document.addEventListener('touchmove', (event) => {
-        if (controlMode === 'mobile' && !inventoryOpen && !optionsOpen && !sensitivityOpen && !fovOpen && !controlsOpen) {
+        if (controlMode === 'mobile' && !inventoryOpen && !optionsOpen && !advancedOpen && !controlsOpen) {
             const touch = event.touches[0];
             const movementX = (touch.clientX - touchStartX) * mouseSensitivity;
             const movementY = (touch.clientY - touchStartY) * mouseSensitivity;
@@ -761,7 +791,7 @@ function setupTouchControls() {
     });
 
     document.addEventListener('touchend', (event) => {
-        if (controlMode === 'mobile' && !inventoryOpen && !optionsOpen && !sensitivityOpen && !fovOpen && !controlsOpen) {
+        if (controlMode === 'mobile' && !inventoryOpen && !optionsOpen && !advancedOpen && !controlsOpen) {
             placeBlock();
         }
     });
@@ -777,6 +807,44 @@ function updateFOV(event) {
     camera.fov = fov;
     camera.updateProjectionMatrix();
     document.getElementById('fov-value').innerText = fov;
+}
+
+function updatePressDelay(event) {
+    pressDelay = parseInt(event.target.value);
+    document.getElementById('press-delay-value').innerText = pressDelay;
+}
+
+function updateResolution(event) {
+    const resolution = event.target.value;
+    if (resolution === 'auto') {
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    } else {
+        const [width, height] = resolution.split('x').map(Number);
+        renderer.setSize(width, height);
+    }
+}
+
+function updateAutoClimb(event) {
+    autoClimb = event.target.checked;
+}
+
+function updateFastBuild(event) {
+    fastBuild = event.target.checked;
+    const fastOptions = document.querySelectorAll('.fast-build-option');
+    fastOptions.forEach(option => {
+        option.classList.toggle('active', fastBuild);
+        const input = option.querySelector('input');
+        if (input) input.disabled = !fastBuild;
+    });
+}
+
+function updateBuildBelow(event) {
+    buildBelow = event.target.checked;
+}
+
+function updateFastPressDelay(event) {
+    fastPressDelay = parseInt(event.target.value);
+    document.getElementById('fast-press-delay-value').innerText = fastPressDelay;
 }
 
 function setupEventListeners() {
@@ -795,12 +863,10 @@ function setupEventListeners() {
 
         if (event.code === 'Escape') {
             event.preventDefault();
-            if (sensitivityOpen || fovOpen || controlsOpen) {
-                sensitivityOpen = false;
-                fovOpen = false;
+            if (advancedOpen || controlsOpen) {
+                advancedOpen = false;
                 controlsOpen = false;
-                document.getElementById('sensitivity-panel').style.display = 'none';
-                document.getElementById('fov-panel').style.display = 'none';
+                document.getElementById('advanced-panel').style.display = 'none';
                 document.getElementById('controls-panel').style.display = 'none';
                 document.getElementById('options').style.display = 'block';
                 optionsOpen = true;
@@ -820,19 +886,19 @@ function setupEventListeners() {
 
         if (event.code === controls.inventory) {
             event.preventDefault();
-            if (!optionsOpen && !sensitivityOpen && !fovOpen && !controlsOpen) {
+            if (!optionsOpen && !advancedOpen && !controlsOpen) {
                 toggleInventory();
             }
             return;
         }
         if (event.code === controls.cameraMode) {
             event.preventDefault();
-            if (!inventoryOpen && !optionsOpen && !sensitivityOpen && !fovOpen && !controlsOpen) {
+            if (!inventoryOpen && !optionsOpen && !advancedOpen && !controlsOpen) {
                 toggleCameraMode();
             }
             return;
         }
-        if (inventoryOpen || optionsOpen || sensitivityOpen || fovOpen || controlsOpen) return;
+        if (inventoryOpen || optionsOpen || advancedOpen || controlsOpen) return;
 
         switch (event.code) {
             case controls.moveForward:
@@ -865,7 +931,7 @@ function setupEventListeners() {
 
     document.addEventListener('keyup', (event) => {
         if (controlMode !== 'keyboard') return;
-        if (inventoryOpen || optionsOpen || sensitivityOpen || fovOpen || controlsOpen) return;
+        if (inventoryOpen || optionsOpen || advancedOpen || controlsOpen) return;
 
         switch (event.code) {
             case controls.moveForward:
@@ -886,7 +952,7 @@ function setupEventListeners() {
 
     document.addEventListener('click', lockPointer);
     document.addEventListener('mousedown', (event) => {
-        if (controlMode === 'keyboard' && !inventoryOpen && !optionsOpen && !sensitivityOpen && !fovOpen && !controlsOpen) {
+        if (controlMode === 'keyboard' && !inventoryOpen && !optionsOpen && !advancedOpen && !controlsOpen) {
             if (event.button === 0) {
                 isLeftMouseDown = true;
                 breakBlock();
@@ -908,7 +974,7 @@ function setupEventListeners() {
         }
     });
     document.addEventListener('mousemove', (event) => {
-        if (controlMode === 'keyboard' && !inventoryOpen && !optionsOpen && !sensitivityOpen && !fovOpen && !controlsOpen && document.pointerLockElement === document.body) {
+        if (controlMode === 'keyboard' && !inventoryOpen && !optionsOpen && !advancedOpen && !controlsOpen && document.pointerLockElement === document.body) {
             const movementX = event.movementX * mouseSensitivity;
             const movementY = event.movementY * mouseSensitivity;
             if (cameraMode === 0) {
@@ -927,14 +993,19 @@ function setupEventListeners() {
 
     document.getElementById('inventory-grid').addEventListener('click', onInventoryClick);
     document.getElementById('options-grid').addEventListener('click', onOptionsClick);
-    document.getElementById('sensitivity-panel').addEventListener('click', onPanelClick);
-    document.getElementById('fov-panel').addEventListener('click', onPanelClick);
+    document.getElementById('advanced-panel').addEventListener('click', onPanelClick);
     document.getElementById('controls-panel').addEventListener('click', (e) => {
         onControlsClick(e);
         onPanelClick(e);
     });
     document.getElementById('sensitivity-slider').addEventListener('input', updateSensitivity);
     document.getElementById('fov-slider').addEventListener('input', updateFOV);
+    document.getElementById('press-delay-slider').addEventListener('input', updatePressDelay);
+    document.getElementById('resolution-select').addEventListener('change', updateResolution);
+    document.getElementById('auto-climb-checkbox').addEventListener('change', updateAutoClimb);
+    document.getElementById('fast-build-checkbox').addEventListener('change', updateFastBuild);
+    document.getElementById('build-below-checkbox').addEventListener('change', updateBuildBelow);
+    document.getElementById('fast-press-delay-slider').addEventListener('input', updateFastPressDelay);
 }
 
 function getDirection() {
@@ -992,7 +1063,7 @@ function animate() {
         updateCameraOrbit();
     }
 
-    if (!inventoryOpen && !optionsOpen && !sensitivityOpen && !fovOpen && !controlsOpen) {
+    if (!inventoryOpen && !optionsOpen && !advancedOpen && !controlsOpen) {
         updateOutline();
         if (controlMode === 'keyboard') {
             if (isLeftMouseDown) breakBlock();
