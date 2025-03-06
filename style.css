@@ -123,7 +123,7 @@ body {
 .panel-content {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: stretch; /* Alterado para esticar os itens */
     gap: var(--small-spacing);
 }
 
@@ -233,6 +233,29 @@ body {
     background: var(--highlight-bg);
 }
 
+.control-item input[type="range"],
+.control-item select,
+.control-item input[type="checkbox"] {
+    cursor: pointer;
+}
+
+/* Estilos para opções de construção rápida */
+.fast-build-option {
+    background: var(--secondary-bg);
+    color: #888; /* Cinza quando desativado */
+    transition: background var(--transition), color var(--transition);
+}
+
+.fast-build-option.active {
+    background: var(--highlight-bg);
+    color: var(--accent-color); /* Verde vibrante quando ativado */
+}
+
+.fast-build-option input[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* Controles de toque */
 .touch-controls {
     display: none;
@@ -278,7 +301,7 @@ body {
 #options-button {
     position: absolute;
     top: 20px;
-    right: calc(20px + var(--button-size) + var(--spacing)); /* À esquerda do mode-button */
+    right: calc(20px + var(--button-size) + var(--spacing));
     width: var(--button-size);
     height: var(--button-size);
     background: rgba(255, 255, 255, 0.2);
@@ -328,7 +351,7 @@ body {
 
 /* Botão de modo de câmera */
 .camera-mode-button {
-    display: none; /* Modificado: escondido por padrão */
+    display: none;
     position: absolute;
     top: 20px;
     left: 50%;
@@ -349,7 +372,7 @@ body {
     z-index: 15;
 }
 
-.camera-mode-button.active { /* Modificado: só aparece com a classe active */
+.camera-mode-button.active {
     display: flex;
 }
 
