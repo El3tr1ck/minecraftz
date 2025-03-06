@@ -271,15 +271,40 @@ body {
 #touch-left { bottom: 30px; left: 0; }
 #touch-right { bottom: 30px; left: 140px; }
 #touch-jump { bottom: 30px; right: 0; }
-#touch-options { top: 20px; right: 20px; } /* Modificado: à direita do mode-button */
 #touch-inventory { bottom: 30px; left: 50%; transform: translateX(-50%); }
 #touch-camera { top: 20px; left: 50%; transform: translateX(-50%); }
+
+/* Botão de opções (nativo para ambos os modos) */
+#options-button {
+    position: absolute;
+    top: 20px;
+    right: calc(20px + var(--button-size) + var(--spacing)); /* À esquerda do mode-button */
+    width: var(--button-size);
+    height: var(--button-size);
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    border-radius: 50%;
+    color: var(--text-color);
+    font-size: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 8px var(--shadow-color);
+    transition: background var(--transition), transform var(--transition);
+    z-index: 15;
+}
+
+#options-button:hover {
+    background: rgba(255, 255, 255, 0.35);
+    transform: scale(1.1);
+}
 
 /* Botão de modo (teclado/celular) */
 .mode-button {
     position: absolute;
     top: 20px;
-    right: calc(20px + var(--button-size) + var(--spacing)); /* Modificado: movido para a esquerda */
+    right: 20px;
     width: var(--button-size);
     height: var(--button-size);
     background: rgba(255, 255, 255, 0.2);
