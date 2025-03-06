@@ -85,6 +85,7 @@ function init() {
     camera.position.set(0, PLAYER_HEIGHT / 2, 0);
 
     const canvas = document.getElementById('game-canvas');
+    if (!canvas) console.error('Canvas não encontrado!');
     renderer = new THREE.WebGLRenderer({ antialias: true, canvas: canvas });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -145,33 +146,42 @@ function init() {
         for (let z = -GRID_SIZE / 2; z < GRID_SIZE / 2; z++) {
             const key = `${x},${0},${z}`;
             blocks[key] = { x, y: 0, z };
+            createBlock(key, floorMaterial); // Criar blocos individualmente
         }
     }
-    createOptimizedBlocks(blocks, floorMaterial);
 
     setupEventListeners();
     setupTouchControls();
 
-    document.getElementById('mode-button').addEventListener('click', toggleControlMode);
-    document.getElementById('mode-button').addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        toggleControlMode();
-    });
+    const modeButton = document.getElementById('mode-button');
+    if (modeButton) {
+        modeButton.addEventListener('click', toggleControlMode);
+        modeButton.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleControlMode();
+        });
+    } else console.error('Botão mode-button não encontrado!');
 
-    document.getElementById('camera-mode-button').addEventListener('click', toggleCameraMode);
-    document.getElementById('camera-mode-button').addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        toggleCameraMode();
-    });
+    const cameraModeButton = document.getElementById('camera-mode-button');
+    if (cameraModeButton) {
+        cameraModeButton.addEventListener('click', toggleCameraMode);
+        cameraModeButton.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleCameraMode();
+        });
+    } else console.error('Botão camera-mode-button não encontrado!');
 
-    document.getElementById('options-button').addEventListener('click', toggleOptions);
-    document.getElementById('options-button').addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        toggleOptions();
-    });
+    const optionsButton = document.getElementById('options-button');
+    if (optionsButton) {
+        optionsButton.addEventListener('click', toggleOptions);
+        optionsButton.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleOptions();
+        });
+    } else console.error('Botão options-button não encontrado!');
 
     animate();
 }
@@ -185,17 +195,21 @@ function createBodyPart(geometry, material, x, y, z) {
     return part;
 }
 
+function createBlock(key, material) {
+    const { x, y, z } = blocks[key];
+    const geometry = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+    const block = new THREE.Mesh(geometry, material);
+    block.position.set(x * BLOCK_SIZE, y * BLOCK_SIZE, z * BLOCK_SIZE);
+    block.castShadow = true;
+    block.receiveShadow = true;
+    scene.add(block);
+    blocks[key].mesh = block;
+}
+
 function createOptimizedBlocks(blocks, material) {
     Object.keys(blocks).forEach(key => {
         if (!blocks[key].mesh) {
-            const { x, y, z } = blocks[key];
-            const geometry = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
-            const block = new THREE.Mesh(geometry, material);
-            block.position.set(x * BLOCK_SIZE, y * BLOCK_SIZE, z * BLOCK_SIZE);
-            block.castShadow = true;
-            block.receiveShadow = true;
-            scene.add(block);
-            blocks[key].mesh = block;
+            createBlock(key, material);
         }
     });
 }
@@ -325,7 +339,7 @@ function updateBodyVisibility() {
 
 function getTargetBlock(action) {
     const raycaster = new THREE.Raycaster();
-    raycaster.setFromCamera(new THREE.Vector2(0, 0 RosTHREE.Vector2(0, 0), camera);
+    raycaster.setFromCamera(new THREE.Vector2(0, 0), camera); // Corrigido erro de sintaxe
     const intersects = raycaster.intersectObjects(Object.values(blocks).map(b => b.mesh).filter(Boolean));
     if (intersects.length > 0) {
         const intersect = intersects[0];
@@ -457,14 +471,12 @@ function checkCollision() {
             maxZ: block.z * BLOCK_SIZE + BLOCK_SIZE / 2
         };
 
-        // Colisão vertical
         if (playerBox.minX < blockBox.maxX && playerBox.maxX > blockBox.minX &&
             playerBox.minZ < blockBox.maxZ && playerBox.maxZ > blockBox.minZ) {
             if (velocity.y <= 0 && playerBox.minY <= blockBox.maxY && playerBox.maxY > blockBox.minY) {
-                // Verifica se o jogador está diretamente acima do bloco
                 const isAboveBlock = playerBox.minX < blockBox.maxX && playerBox.maxX > blockBox.minX &&
                                     playerBox.minZ < blockBox.maxZ && playerBox.maxZ > blockBox.minZ &&
-                                    playerBox.minY >= blockBox.maxY - 0.1; // Pequena tolerância
+                                    playerBox.minY >= blockBox.maxY - 0.1;
 
                 if (autoClimb && isAboveBlock && (blockBox.maxY - (player.position.y - PLAYER_HEIGHT)) <= BLOCK_SIZE) {
                     player.position.y = blockBox.maxY;
@@ -483,7 +495,6 @@ function checkCollision() {
             }
         }
 
-        // Colisão horizontal
         if (playerBox.minY < blockBox.maxY && playerBox.maxY > blockBox.minY) {
             if (moveForward || moveBackward || moveLeft || moveRight) {
                 if (playerBox.minX < blockBox.maxX && playerBox.maxX > blockBox.minX &&
@@ -521,7 +532,8 @@ function unlockPointer() {
 
 function toggleInventory() {
     inventoryOpen = !inventoryOpen;
-    document.getElementById('inventory').style.display = inventoryOpen ? 'block' : 'none';
+    const inventory = document.getElementById('inventory');
+    if (inventory) inventory.style.display = inventoryOpen ? 'block' : 'none';
     if (inventoryOpen) {
         unlockPointer();
     } else {
@@ -531,15 +543,19 @@ function toggleInventory() {
 
 function toggleOptions() {
     optionsOpen = !optionsOpen;
-    document.getElementById('options').style.display = optionsOpen ? 'block' : 'none';
+    const options = document.getElementById('options');
+    if (options) options.style.display = optionsOpen ? 'block' : 'none';
     if (optionsOpen) {
         unlockPointer();
         inventoryOpen = false;
-        document.getElementById('inventory').style.display = 'none';
+        const inventory = document.getElementById('inventory');
+        if (inventory) inventory.style.display = 'none';
         advancedOpen = false;
         controlsOpen = false;
-        document.getElementById('advanced-panel').style.display = 'none';
-        document.getElementById('controls-panel').style.display = 'none';
+        const advancedPanel = document.getElementById('advanced-panel');
+        const controlsPanel = document.getElementById('controls-panel');
+        if (advancedPanel) advancedPanel.style.display = 'none';
+        if (controlsPanel) controlsPanel.style.display = 'none';
     } else {
         lockPointer();
     }
@@ -547,11 +563,13 @@ function toggleOptions() {
 
 function toggleAdvanced() {
     advancedOpen = !advancedOpen;
-    document.getElementById('advanced-panel').style.display = advancedOpen ? 'block' : 'none';
+    const advancedPanel = document.getElementById('advanced-panel');
+    if (advancedPanel) advancedPanel.style.display = advancedOpen ? 'block' : 'none';
     if (advancedOpen) {
         unlockPointer();
         optionsOpen = false;
-        document.getElementById('options').style.display = 'none';
+        const options = document.getElementById('options');
+        if (options) options.style.display = 'none';
     } else {
         lockPointer();
     }
@@ -560,16 +578,17 @@ function toggleAdvanced() {
 function toggleControlMode() {
     controlMode = controlMode === 'keyboard' ? 'mobile' : 'keyboard';
     const modeButton = document.getElementById('mode-button');
-    modeButton.innerHTML = controlMode === 'keyboard' ? '<i class="fas fa-keyboard"></i>' : '<i class="fas fa-mobile-alt"></i>';
+    if (modeButton) modeButton.innerHTML = controlMode === 'keyboard' ? '<i class="fas fa-keyboard"></i>' : '<i class="fas fa-mobile-alt"></i>';
     const touchControls = document.getElementById('touch-controls');
     const cameraModeButton = document.getElementById('camera-mode-button');
     
-    touchControls.style.display = controlMode === 'mobile' ? 'block' : 'none';
-    
-    if (controlMode === 'mobile') {
-        cameraModeButton.classList.add('active');
-    } else {
-        cameraModeButton.classList.remove('active');
+    if (touchControls) touchControls.style.display = controlMode === 'mobile' ? 'block' : 'none';
+    if (cameraModeButton) {
+        if (controlMode === 'mobile') {
+            cameraModeButton.classList.add('active');
+        } else {
+            cameraModeButton.classList.remove('active');
+        }
     }
     
     moveForward = false;
@@ -606,16 +625,21 @@ function onOptionsClick(event) {
         const action = button.dataset.action;
         if (action === 'resume') {
             optionsOpen = false;
-            document.getElementById('options').style.display = 'none';
+            const options = document.getElementById('options');
+            if (options) options.style.display = 'none';
             lockPointer();
-        } else ifa class="option-button" data-action="advanced"><i class="fas fa-tools"></i> Configurações Avançadas</button>
-            document.getElementById('options').style.display = 'none';
-            document.getElementById('advanced-panel').style.display = 'block';
+        } else if (action === 'advanced') {
+            const options = document.getElementById('options');
+            const advancedPanel = document.getElementById('advanced-panel');
+            if (options) options.style.display = 'none';
+            if (advancedPanel) advancedPanel.style.display = 'block';
             advancedOpen = true;
             optionsOpen = false;
         } else if (action === 'controls') {
-            document.getElementById('options').style.display = 'none';
-            document.getElementById('controls-panel').style.display = 'block';
+            const options = document.getElementById('options');
+            const controlsPanel = document.getElementById('controls-panel');
+            if (options) options.style.display = 'none';
+            if (controlsPanel) controlsPanel.style.display = 'block';
             controlsOpen = true;
             optionsOpen = false;
         }
@@ -625,9 +649,12 @@ function onOptionsClick(event) {
 function onPanelClick(event) {
     const button = event.target.closest('.back-button');
     if (button) {
-        document.getElementById('advanced-panel').style.display = 'none';
-        document.getElementById('controls-panel').style.display = 'none';
-        document.getElementById('options').style.display = 'block';
+        const advancedPanel = document.getElementById('advanced-panel');
+        const controlsPanel = document.getElementById('controls-panel');
+        const options = document.getElementById('options');
+        if (advancedPanel) advancedPanel.style.display = 'none';
+        if (controlsPanel) controlsPanel.style.display = 'none';
+        if (options) options.style.display = 'block';
         advancedOpen = false;
         controlsOpen = false;
         optionsOpen = true;
@@ -654,117 +681,134 @@ function setupTouchControls() {
     const inventoryButton = document.getElementById('touch-inventory');
     const cameraButton = document.getElementById('touch-camera');
 
-    forwardButton.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        if (controlMode === 'mobile') moveForward = true;
-    });
-    forwardButton.addEventListener('touchend', (e) => {
-        e.preventDefault();
-        moveForward = false;
-    });
-    forwardButton.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        if (controlMode === 'mobile') moveForward = true;
-    });
-    forwardButton.addEventListener('mouseup', (e) => {
-        e.preventDefault();
-        moveForward = false;
-    });
+    if (forwardButton) {
+        forwardButton.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (controlMode === 'mobile') moveForward = true;
+        });
+        forwardButton.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            moveForward = false;
+        });
+        forwardButton.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            if (controlMode === 'mobile') moveForward = true;
+        });
+        forwardButton.addEventListener('mouseup', (e) => {
+            e.preventDefault();
+            moveForward = false;
+        });
+    }
 
-    backwardButton.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        if (controlMode === 'mobile') moveBackward = true;
-    });
-    backwardButton.addEventListener('touchend', (e) => {
-        e.preventDefault();
-        moveBackward = false;
-    });
-    backwardButton.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        if (controlMode === 'mobile') moveBackward = true;
-    });
-    backwardButton.addEventListener('mouseup', (e) => {
-        e.preventDefault();
-        moveBackward = false;
-    });
+    if (backwardButton) {
+        backwardButton.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (controlMode === 'mobile') moveBackward = true;
+        });
+        backwardButton.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            moveBackward = false;
+        });
+        backwardButton.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            if (controlMode === 'mobile') moveBackward = true;
+        });
+        backwardButton.addEventListener('mouseup', (e) => {
+            e.preventDefault();
+            moveBackward = false;
+        });
+    }
 
-    leftButton.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        if (controlMode === 'mobile') moveLeft = true;
-    });
-    leftButton.addEventListener('touchend', (e) => {
-        e.preventDefault();
-        moveLeft = false;
-    });
-    leftButton.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        if (controlMode === 'mobile') moveLeft = true;
-    });
-    leftButton.addEventListener('mouseup', (e) => {
-        e.preventDefault();
-        moveLeft = false;
-    });
+    if (leftButton) {
+        leftButton.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (controlMode === 'mobile') moveLeft = true;
+        });
+        leftButton.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            moveLeft = false;
+        });
+        leftButton.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            if (controlMode === 'mobile') moveLeft = true;
+        });
+        leftButton.addEventListener('mouseup', (e) => {
+            e.preventDefault();
+            moveLeft = false;
+        });
+    }
 
-    rightButton.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        if (controlMode === 'mobile') moveRight = true;
-    });
-    rightButton.addEventListener('touchend', (e) => {
-        e.preventDefault();
-        moveRight = false;
-    });
-    rightButton.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        if (controlMode === 'mobile') moveRight = true;
-    });
-    rightButton.addEventListener('mouseup', (e) => {
-        e.preventDefault();
-        moveRight = false;
-    });
+    if (rightButton) {
+        rightButton.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (controlMode === 'mobile') moveRight = true;
+        });
+        rightButton.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            moveRight = false;
+        });
+        rightButton.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            if (controlMode === 'mobile') moveRight = true;
+        });
+        rightButton.addEventListener('mouseup', (e) => {
+            e.preventDefault();
+            moveRight = false;
+        });
+    }
 
-    jumpButton.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        if (controlMode === 'mobile' && canJump) {
-            velocity.y = Math.sqrt(2 * GRAVITY * JUMP_HEIGHT);
-            canJump = false;
-        }
-    });
-    jumpButton.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        if (controlMode === 'mobile' && canJump) {
-            velocity.y = Math.sqrt(2 * GRAVITY * JUMP_HEIGHT);
-            canJump = false;
-        }
-    });
+    if (jumpButton) {
+        jumpButton.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (controlMode === 'mobile' && canJump) {
+                velocity.y = Math.sqrt(2 * GRAVITY * JUMP_HEIGHT);
+                canJump = false;
+            }
+        });
+        jumpButton.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            if (controlMode === 'mobile' && canJump) {
+                velocity.y = Math.sqrt(2 * GRAVITY * JUMP_HEIGHT);
+                canJump = false;
+            }
+        });
+    }
 
-    inventoryButton.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (controlMode === 'mobile') toggleInventory();
-    });
-    inventoryButton.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (controlMode === 'mobile') toggleInventory();
-    });
+    if (inventoryButton) {
+        inventoryButton.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (controlMode === 'mobile') toggleInventory();
+        });
+        inventoryButton.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (controlMode === 'mobile') toggleInventory();
+        });
+    }
 
-    cameraButton.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (controlMode === 'mobile') toggleCameraMode();
-    });
-    cameraButton.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (controlMode === 'mobile') toggleCameraMode();
-    });
+    if (cameraButton) {
+        cameraButton.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (controlMode === 'mobile') toggleCameraMode();
+        });
+        cameraButton.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (controlMode === 'mobile') toggleCameraMode();
+        });
+    }
 
-    document.getElementById('close-inventory').addEventListener('click', toggleInventory);
-    document.getElementById('close-inventory').addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        toggleInventory();
-    });
+    const closeInventory = document.getElementById('close-inventory');
+    if (closeInventory) {
+        closeInventory.addEventListener('click', toggleInventory);
+        closeInventory.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleInventory();
+        });
+    }
 
     document.addEventListener('touchstart', (event) => {
         if (controlMode === 'mobile' && !inventoryOpen && !optionsOpen && !advancedOpen && !controlsOpen) {
@@ -804,19 +848,22 @@ function setupTouchControls() {
 
 function updateSensitivity(event) {
     mouseSensitivity = parseFloat(event.target.value);
-    document.getElementById('sensitivity-value').innerText = mouseSensitivity.toFixed(4);
+    const sensitivityValue = document.getElementById('sensitivity-value');
+    if (sensitivityValue) sensitivityValue.innerText = mouseSensitivity.toFixed(4);
 }
 
 function updateFOV(event) {
     const fov = parseInt(event.target.value);
     camera.fov = fov;
     camera.updateProjectionMatrix();
-    document.getElementById('fov-value').innerText = fov;
+    const fovValue = document.getElementById('fov-value');
+    if (fovValue) fovValue.innerText = fov;
 }
 
 function updatePressDelay(event) {
     pressDelay = parseInt(event.target.value);
-    document.getElementById('press-delay-value').innerText = pressDelay;
+    const pressDelayValue = document.getElementById('press-delay-value');
+    if (pressDelayValue) pressDelayValue.innerText = pressDelay;
 }
 
 function updateResolution(event) {
@@ -849,7 +896,8 @@ function updateBuildBelow(event) {
 
 function updateFastPressDelay(event) {
     fastPressDelay = parseInt(event.target.value);
-    document.getElementById('fast-press-delay-value').innerText = fastPressDelay;
+    const fastPressDelayValue = document.getElementById('fast-press-delay-value');
+    if (fastPressDelayValue) fastPressDelayValue.innerText = fastPressDelay;
 }
 
 function setupEventListeners() {
@@ -860,8 +908,8 @@ function setupEventListeners() {
             event.preventDefault();
             controls[awaitingKey] = event.code;
             const controlItem = document.querySelector(`[data-control="${awaitingKey}"]`);
-            controlItem.querySelector('span:last-child').innerText = event.code.replace('Key', '');
-            controlItem.style.background = '';
+            if (controlItem) controlItem.querySelector('span:last-child').innerText = event.code.replace('Key', '');
+            if (controlItem) controlItem.style.background = '';
             awaitingKey = null;
             return;
         }
@@ -871,17 +919,22 @@ function setupEventListeners() {
             if (advancedOpen || controlsOpen) {
                 advancedOpen = false;
                 controlsOpen = false;
-                document.getElementById('advanced-panel').style.display = 'none';
-                document.getElementById('controls-panel').style.display = 'none';
-                document.getElementById('options').style.display = 'block';
+                const advancedPanel = document.getElementById('advanced-panel');
+                const controlsPanel = document.getElementById('controls-panel');
+                const options = document.getElementById('options');
+                if (advancedPanel) advancedPanel.style.display = 'none';
+                if (controlsPanel) controlsPanel.style.display = 'none';
+                if (options) options.style.display = 'block';
                 optionsOpen = true;
             } else if (optionsOpen) {
                 optionsOpen = false;
-                document.getElementById('options').style.display = 'none';
+                const options = document.getElementById('options');
+                if (options) options.style.display = 'none';
                 lockPointer();
             } else if (inventoryOpen) {
                 inventoryOpen = false;
-                document.getElementById('inventory').style.display = 'none';
+                const inventory = document.getElementById('inventory');
+                if (inventory) inventory.style.display = 'none';
                 lockPointer();
             } else {
                 toggleOptions();
@@ -996,21 +1049,34 @@ function setupEventListeners() {
         }
     });
 
-    document.getElementById('inventory-grid').addEventListener('click', onInventoryClick);
-    document.getElementById('options-grid').addEventListener('click', onOptionsClick);
-    document.getElementById('advanced-panel').addEventListener('click', onPanelClick);
-    document.getElementById('controls-panel').addEventListener('click', (e) => {
+    const inventoryGrid = document.getElementById('inventory-grid');
+    if (inventoryGrid) inventoryGrid.addEventListener('click', onInventoryClick);
+    const optionsGrid = document.getElementById('options-grid');
+    if (optionsGrid) optionsGrid.addEventListener('click', onOptionsClick);
+    const advancedPanel = document.getElementById('advanced-panel');
+    if (advancedPanel) advancedPanel.addEventListener('click', onPanelClick);
+    const controlsPanel = document.getElementById('controls-panel');
+    if (controlsPanel) controlsPanel.addEventListener('click', (e) => {
         onControlsClick(e);
         onPanelClick(e);
     });
-    document.getElementById('sensitivity-slider').addEventListener('input', updateSensitivity);
-    document.getElementById('fov-slider').addEventListener('input', updateFOV);
-    document.getElementById('press-delay-slider').addEventListener('input', updatePressDelay);
-    document.getElementById('resolution-select').addEventListener('change', updateResolution);
-    document.getElementById('auto-climb-checkbox').addEventListener('change', updateAutoClimb);
-    document.getElementById('fast-build-checkbox').addEventListener('change', updateFastBuild);
-    document.getElementById('build-below-checkbox').addEventListener('change', updateBuildBelow);
-    document.getElementById('fast-press-delay-slider').addEventListener('input', updateFastPressDelay);
+
+    const sensitivitySlider = document.getElementById('sensitivity-slider');
+    if (sensitivitySlider) sensitivitySlider.addEventListener('input', updateSensitivity);
+    const fovSlider = document.getElementById('fov-slider');
+    if (fovSlider) fovSlider.addEventListener('input', updateFOV);
+    const pressDelaySlider = document.getElementById('press-delay-slider');
+    if (pressDelaySlider) pressDelaySlider.addEventListener('input', updatePressDelay);
+    const resolutionSelect = document.getElementById('resolution-select');
+    if (resolutionSelect) resolutionSelect.addEventListener('change', updateResolution);
+    const autoClimbCheckbox = document.getElementById('auto-climb-checkbox');
+    if (autoClimbCheckbox) autoClimbCheckbox.addEventListener('change', updateAutoClimb);
+    const fastBuildCheckbox = document.getElementById('fast-build-checkbox');
+    if (fastBuildCheckbox) fastBuildCheckbox.addEventListener('change', updateFastBuild);
+    const buildBelowCheckbox = document.getElementById('build-below-checkbox');
+    if (buildBelowCheckbox) buildBelowCheckbox.addEventListener('change', updateBuildBelow);
+    const fastPressDelaySlider = document.getElementById('fast-press-delay-slider');
+    if (fastPressDelaySlider) fastPressDelaySlider.addEventListener('input', updateFastPressDelay);
 }
 
 function getDirection() {
@@ -1081,12 +1147,17 @@ function animate() {
     }
 
     if (showFPS) {
-        document.getElementById('fpsCounter').innerText = `FPS: ${Math.round(1000 / (performance.now() - lastFrameTime))}`;
+        const fpsCounter = document.getElementById('fpsCounter');
+        if (fpsCounter) fpsCounter.innerText = `FPS: ${Math.round(1000 / (performance.now() - lastFrameTime))}`;
         const dir = getDirection();
-        document.getElementById('direction').innerHTML = `<span style="color: ${dir.color}">${dir.text}</span>`;
-        document.getElementById('positionX').innerText = `X: ${player.position.x.toFixed(2)}`;
-        document.getElementById('positionY').innerText = `Y: ${player.position.y.toFixed(2)}`;
-        document.getElementById('positionZ').innerText = `Z: ${player.position.z.toFixed(2)}`;
+        const directionElement = document.getElementById('direction');
+        if (directionElement) directionElement.innerHTML = `<span style="color: ${dir.color}">${dir.text}</span>`;
+        const positionX = document.getElementById('positionX');
+        const positionY = document.getElementById('positionY');
+        const positionZ = document.getElementById('positionZ');
+        if (positionX) positionX.innerText = `X: ${player.position.x.toFixed(2)}`;
+        if (positionY) positionY.innerText = `Y: ${player.position.y.toFixed(2)}`;
+        if (positionZ) positionZ.innerText = `Z: ${player.position.z.toFixed(2)}`;
     }
     lastFrameTime = performance.now();
 
@@ -1098,7 +1169,7 @@ let lastFrameTime = performance.now();
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.inner pawHeight);
+    renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-init();
+window.addEventListener('load', init); // Garantir que init seja chamado após o DOM carregar
