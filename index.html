@@ -43,29 +43,57 @@
     <section id="options" class="panel">
         <div id="options-grid" class="grid">
             <button class="option-button" data-action="resume"><i class="fas fa-play"></i> Jogar</button>
-            <button class="option-button" data-action="sensitivity"><i class="fas fa-sliders"></i> Sensibilidade</button>
-            <button class="option-button" data-action="fov"><i class="fas fa-eye"></i> FOV</button>
+            <button class="option-button" data-action="advanced"><i class="fas fa-tools"></i> Configurações Avançadas</button>
             <button class="option-button" data-action="controls"><i class="fas fa-gamepad"></i> Controles</button>
         </div>
     </section>
-    <section id="sensitivity-panel" class="panel">
+    <section id="advanced-panel" class="panel">
         <header class="panel-header">
             <button class="back-button" data-action="back"><i class="fas fa-arrow-left"></i></button>
-            <h2>Sensibilidade</h2>
+            <h2>Configurações Avançadas</h2>
         </header>
         <div class="panel-content">
-            <input type="range" id="sensitivity-slider" min="0.0005" max="0.005" step="0.0005" value="0.001">
-            <span id="sensitivity-value">0.001</span>
-        </div>
-    </section>
-    <section id="fov-panel" class="panel">
-        <header class="panel-header">
-            <button class="back-button" data-action="back"><i class="fas fa-arrow-left"></i></button>
-            <h2>FOV</h2>
-        </header>
-        <div class="panel-content">
-            <input type="range" id="fov-slider" min="50" max="100" step="1" value="75">
-            <span id="fov-value">75</span>
+            <div class="control-item">
+                <span>Sensibilidade</span>
+                <input type="range" id="sensitivity-slider" min="0.0005" max="0.005" step="0.0005" value="0.001">
+                <span id="sensitivity-value">0.001</span>
+            </div>
+            <div class="control-item">
+                <span>FOV</span>
+                <input type="range" id="fov-slider" min="50" max="100" step="1" value="75">
+                <span id="fov-value">75</span>
+            </div>
+            <div class="control-item">
+                <span>Delay de Pressão (ms)</span>
+                <input type="range" id="press-delay-slider" min="50" max="500" step="10" value="100">
+                <span id="press-delay-value">100</span>
+            </div>
+            <div class="control-item">
+                <span>Resolução</span>
+                <select id="resolution-select">
+                    <option value="auto">Automática</option>
+                    <option value="1920x1080">1920x1080</option>
+                    <option value="1280x720">1280x720</option>
+                    <option value="854x480">854x480</option>
+                </select>
+            </div>
+            <div class="control-item">
+                <span>Subir Blocos Automaticamente</span>
+                <input type="checkbox" id="auto-climb-checkbox" checked>
+            </div>
+            <div class="control-item">
+                <span>Construção Rápida</span>
+                <input type="checkbox" id="fast-build-checkbox">
+            </div>
+            <div class="control-item fast-build-option">
+                <span>Colocar Blocos Abaixo sem Pular</span>
+                <input type="checkbox" id="build-below-checkbox" disabled>
+            </div>
+            <div class="control-item fast-build-option">
+                <span>Delay de Pressão Rápida (ms)</span>
+                <input type="range" id="fast-press-delay-slider" min="50" max="500" step="10" value="100" disabled>
+                <span id="fast-press-delay-value">100</span>
+            </div>
         </div>
     </section>
     <section id="controls-panel" class="panel">
@@ -92,7 +120,7 @@
         <button class="touch-button" id="touch-inventory"><i class="fas fa-box-open"></i></button>
         <button class="touch-button" id="touch-camera"><i class="fas fa-camera"></i></button>
     </div>
-    <button id="options-button"><i class="fas fa-cog"></i></button> <!-- Novo botão de opções -->
+    <button id="options-button"><i class="fas fa-cog"></i></button>
     <button id="mode-button" class="mode-button"><i class="fas fa-keyboard"></i></button>
     <button id="camera-mode-button" class="camera-mode-button"><i class="fas fa-camera-retro"></i></button>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
