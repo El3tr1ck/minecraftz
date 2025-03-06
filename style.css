@@ -271,7 +271,7 @@ body {
 #touch-left { bottom: 30px; left: 0; }
 #touch-right { bottom: 30px; left: 140px; }
 #touch-jump { bottom: 30px; right: 0; }
-#touch-options { top: 20px; right: 84px; } /* Modificado: ao lado do mode-button */
+#touch-options { top: 20px; right: 20px; } /* Modificado: à direita do mode-button */
 #touch-inventory { bottom: 30px; left: 50%; transform: translateX(-50%); }
 #touch-camera { top: 20px; left: 50%; transform: translateX(-50%); }
 
@@ -279,7 +279,7 @@ body {
 .mode-button {
     position: absolute;
     top: 20px;
-    right: 20px;
+    right: calc(20px + var(--button-size) + var(--spacing)); /* Modificado: movido para a esquerda */
     width: var(--button-size);
     height: var(--button-size);
     background: rgba(255, 255, 255, 0.2);
