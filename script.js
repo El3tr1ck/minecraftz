@@ -43,6 +43,8 @@ let controls = {
 };
 let awaitingKey = null;
 let touchStartX = null, touchStartY = null;
+let isLeftMouseDown = false;
+let isRightMouseDown = false;
 
 const textureLoader = new THREE.TextureLoader();
 const grassTexture = textureLoader.load('img/bloco_de_grama.png', 
@@ -156,6 +158,14 @@ function init() {
         e.preventDefault();
         e.stopPropagation();
         toggleCameraMode();
+    });
+
+    // Novo: Adicionar evento ao botão de opções
+    document.getElementById('options-button').addEventListener('click', toggleOptions);
+    document.getElementById('options-button').addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleOptions();
     });
 
     animate();
@@ -510,19 +520,16 @@ function toggleControlMode() {
     const modeButton = document.getElementById('mode-button');
     modeButton.innerHTML = controlMode === 'keyboard' ? '<i class="fas fa-keyboard"></i>' : '<i class="fas fa-mobile-alt"></i>';
     const touchControls = document.getElementById('touch-controls');
-    const cameraModeButton = document.getElementById('camera-mode-button'); // Modificado: referência ao botão de câmera
+    const cameraModeButton = document.getElementById('camera-mode-button');
     
-    // Mostrar/esconder controles de toque
     touchControls.style.display = controlMode === 'mobile' ? 'block' : 'none';
     
-    // Mostrar/esconder botão de troca de câmera
     if (controlMode === 'mobile') {
         cameraModeButton.classList.add('active');
     } else {
         cameraModeButton.classList.remove('active');
     }
     
-    // Resetar movimento
     moveForward = false;
     moveBackward = false;
     moveLeft = false;
@@ -609,7 +616,6 @@ function setupTouchControls() {
     const leftButton = document.getElementById('touch-left');
     const rightButton = document.getElementById('touch-right');
     const jumpButton = document.getElementById('touch-jump');
-    const optionsButton = document.getElementById('touch-options');
     const inventoryButton = document.getElementById('touch-inventory');
     const cameraButton = document.getElementById('touch-camera');
 
@@ -696,17 +702,6 @@ function setupTouchControls() {
         }
     });
 
-    optionsButton.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (controlMode === 'mobile') toggleOptions();
-    });
-    optionsButton.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (controlMode === 'mobile') toggleOptions();
-    });
-
     inventoryButton.addEventListener('touchstart', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -741,11 +736,6 @@ function setupTouchControls() {
             const touch = event.touches[0];
             touchStartX = touch.clientX;
             touchStartY = touch.clientY;
-            setTimeout(() => {
-                if (touchStartX === touch.clientX && touchStartY === touch.clientY) {
-                    breakBlock();
-                }
-            }, 200);
         }
     });
 
@@ -898,11 +888,22 @@ function setupEventListeners() {
     document.addEventListener('mousedown', (event) => {
         if (controlMode === 'keyboard' && !inventoryOpen && !optionsOpen && !sensitivityOpen && !fovOpen && !controlsOpen) {
             if (event.button === 0) {
+                isLeftMouseDown = true;
                 breakBlock();
             } else if (event.button === 1) {
                 pickBlock();
             } else if (event.button === 2) {
+                isRightMouseDown = true;
                 placeBlock();
+            }
+        }
+    });
+    document.addEventListener('mouseup', (event) => {
+        if (controlMode === 'keyboard') {
+            if (event.button === 0) {
+                isLeftMouseDown = false;
+            } else if (event.button === 2) {
+                isRightMouseDown = false;
             }
         }
     });
@@ -955,7 +956,6 @@ function animate() {
         player.rotation.y = cameraAngleY;
     }
 
-    // Aplicar gravidade
     velocity.y -= GRAVITY;
     player.position.y += velocity.y;
 
@@ -982,7 +982,7 @@ function animate() {
 
     if (player.position.y < -10) {
         setTimeout(() => {
-            player.position.set(0, BLOCK_SIZE, 0); // Volta ao topo do chão
+            player.position.set(0, BLOCK_SIZE, 0);
             velocity.y = 0;
             canJump = true;
         }, 2000);
@@ -992,7 +992,17 @@ function animate() {
         updateCameraOrbit();
     }
 
-    if (!inventoryOpen && !optionsOpen && !sensitivityOpen && !fovOpen && !controlsOpen) updateOutline();
+    if (!inventoryOpen && !optionsOpen && !sensitivityOpen && !fovOpen && !controlsOpen) {
+        updateOutline();
+        if (controlMode === 'keyboard') {
+            if (isLeftMouseDown) breakBlock();
+            if (isRightMouseDown) placeBlock();
+        } else if (controlMode === 'mobile') {
+            if (touchStartX !== null && touchStartY !== null) {
+                breakBlock();
+            }
+        }
+    }
 
     if (showFPS) {
         document.getElementById('fpsCounter').innerText = `FPS: ${Math.round(1000 / (performance.now() - lastFrameTime))}`;
