@@ -1,72 +1,70 @@
-/* Variáveis CSS para consistência e flexibilidade */
+/* Importa uma fonte pixelada para a estética "retro" do Minecraft */
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+/* Variáveis CSS inspiradas na paleta e estilo do Minecraft */
 :root {
-    --primary-bg: #1e1e1e;
-    --secondary-bg: #333333;
-    --highlight-bg: #4d4d4d;
-    --accent-color: #00e676;
-    --text-color: #ffffff;
-    --border-color: #555555;
-    --shadow-color: rgba(0, 0, 0, 0.6);
+    --minecraft-font: 'Press Start 2P', cursive;
+    --minecraft-dark-bg: #2B2B2B;        /* Fundo escuro dos painéis */
+    --minecraft-inset-bg: #1E1E1E;       /* Fundo dos slots "afundados" */
+    --minecraft-button-bg: #787878;      /* Fundo do botão normal */
+    --minecraft-button-hover-bg: #8A8A8A; /* Fundo do botão em hover */
+    --minecraft-border-light: #A8A8A8;   /* Borda clara para efeito 3D */
+    --minecraft-border-dark: #373737;    /* Borda escura para efeito 3D */
+    --minecraft-text-color: #DDDDDD;     /* Cor do texto principal */
+    --minecraft-text-shadow: #373737;    /* Sombra do texto para legibilidade */
+    --selected-slot-color: #FFFF55;      /* Amarelo para seleção */
+
     --spacing: 12px;
-    --small-spacing: 6px;
-    --panel-width: 340px;
-    --slot-size: 60px;
+    --slot-size: 54px;
     --button-size: 64px;
-    --transition: 0.2s ease-in-out;
+    --transition: 0.1s ease;
 }
 
 /* Estilos gerais */
 body {
     margin: 0;
     overflow: hidden;
-    background: linear-gradient(135deg, #87CEEB, #5A9BD4);
-    font-family: 'Arial', sans-serif;
+    background-color: #3B95C4; /* Cor de fundo mais simples */
+    color: var(--minecraft-text-color);
+    font-family: var(--minecraft-font);
 }
 
-/* Canvas */
+/* Evita que as imagens fiquem borradas ao serem redimensionadas */
+img {
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+}
+
+/* Canvas do Jogo */
 #game-canvas {
     display: block;
     width: 100%;
     height: 100vh;
 }
 
-/* HUD */
+/* HUD (Informações na tela) */
 .hud {
     position: absolute;
     top: var(--spacing);
     left: var(--spacing);
-    display: flex;
-    flex-direction: column;
-    gap: var(--small-spacing);
     z-index: 10;
+    pointer-events: none; /* Impede que o HUD intercepte cliques */
 }
 
 .hud-card {
-    background: rgba(30, 30, 30, 0.9);
-    padding: var(--small-spacing) var(--spacing);
-    border-radius: 8px;
-    color: var(--text-color);
     font-size: 14px;
-    width: 150px;
-    box-shadow: 0 2px 6px var(--shadow-color);
+    text-shadow: 2px 2px 0px var(--minecraft-text-shadow);
+    line-height: 1.5;
 }
 
-.hud-card span {
-    display: block;
-    font-weight: 500;
-}
-
-#positionX { color: #ff6666; }
-#positionY { color: #66ff66; }
-#positionZ { color: #6666ff; }
-
-/* Crosshair */
+/* Mira */
 #crosshair {
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
     transform: translate(-50%, -50%);
     pointer-events: none;
     z-index: 5;
@@ -76,34 +74,35 @@ body {
 #crosshair::after {
     content: '';
     position: absolute;
-    background: var(--text-color);
+    background: black;
+    box-shadow: 0 0 1px white, 0 0 2px white; /* Borda branca para contraste */
 }
 
 #crosshair::before {
     width: 2px;
-    height: 24px;
-    left: 11px;
+    height: 100%;
+    left: 9px;
 }
 
 #crosshair::after {
-    width: 24px;
+    width: 100%;
     height: 2px;
-    top: 11px;
+    top: 9px;
 }
 
-/* Painéis genéricos */
+/* Painéis (Inventário, Opções, etc.) */
 .panel {
     display: none;
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: var(--panel-width);
-    background: var(--primary-bg);
-    border-radius: 12px;
+    width: 380px;
+    background-color: var(--minecraft-dark-bg);
+    border: 3px solid;
+    border-color: var(--minecraft-border-light) var(--minecraft-border-dark) var(--minecraft-border-dark) var(--minecraft-border-light);
+    box-shadow: inset 0 0 0 3px var(--minecraft-inset-bg);
     padding: var(--spacing);
-    color: var(--text-color);
-    box-shadow: 0 8px 16px var(--shadow-color);
     z-index: 20;
 }
 
@@ -111,154 +110,126 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding-bottom: var(--spacing);
+    margin-bottom: var(--spacing);
 }
 
 .panel-header h2 {
     margin: 0;
-    font-size: 20px;
-    font-weight: 600;
+    font-size: 16px;
+    font-weight: normal;
+    text-shadow: 2px 2px 0px var(--minecraft-text-shadow);
 }
 
-.panel-content {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch; /* Alterado para esticar os itens */
-    gap: var(--small-spacing);
-}
-
-/* Botões de fechar/voltar */
-.close-button,
-.back-button {
-    width: 36px;
-    height: 36px;
-    background: var(--secondary-bg);
-    border: none;
-    border-radius: 50%;
-    color: var(--text-color);
+/* Botões Genéricos (Estilo Minecraft) */
+.mc-button {
+    background-color: var(--minecraft-button-bg);
+    border: 3px solid;
+    border-color: var(--minecraft-border-light) var(--minecraft-border-dark) var(--minecraft-border-dark) var(--minecraft-border-light);
+    color: var(--minecraft-text-color);
     cursor: pointer;
+    font-family: var(--minecraft-font);
+    font-size: 14px;
+    padding: var(--spacing);
+    text-align: center;
+    text-shadow: 2px 2px 0px var(--minecraft-text-shadow);
+    transition: var(--transition);
+}
+
+.mc-button:hover {
+    background-color: var(--minecraft-button-hover-bg);
+}
+
+.mc-button:active {
+    /* Efeito de botão pressionado */
+    border-color: var(--minecraft-border-dark) var(--minecraft-border-light) var(--minecraft-border-light) var(--minecraft-border-dark);
+    transform: translateY(1px);
+}
+
+/* Aplicando o estilo de botão ao que precisa */
+.option-button {
+    composes: mc-button; /* Se usar CSS Modules, ou copie as propriedades */
+    background-color: var(--minecraft-button-bg);
+    border: 3px solid;
+    border-color: var(--minecraft-border-light) var(--minecraft-border-dark) var(--minecraft-border-dark) var(--minecraft-border-light);
+    color: var(--minecraft-text-color);
+    cursor: pointer;
+    font-family: var(--minecraft-font);
+    font-size: 14px;
+    padding: var(--spacing);
+    text-align: center;
+    text-shadow: 2px 2px 0px var(--minecraft-text-shadow);
+    transition: var(--transition);
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background var(--transition), transform var(--transition);
+    gap: var(--spacing);
 }
 
-.close-button:hover,
-.back-button:hover {
-    background: var(--highlight-bg);
-    transform: scale(1.1);
+.option-button:hover {
+    background-color: var(--minecraft-button-hover-bg);
 }
 
-/* Grid genérico */
+.option-button:active {
+    border-color: var(--minecraft-border-dark) var(--minecraft-border-light) var(--minecraft-border-light) var(--minecraft-border-dark);
+    transform: translateY(1px);
+}
+
+/* Grid de Slots */
 .grid {
     display: grid;
-    gap: var(--small-spacing);
+    gap: 4px;
 }
 
-/* Inventário */
 #inventory-grid {
-    grid-template-columns: repeat(5, var(--slot-size));
+    grid-template-columns: repeat(auto-fill, var(--slot-size));
 }
 
 .inventory-slot {
     width: var(--slot-size);
     height: var(--slot-size);
-    background: var(--secondary-bg);
-    border: 2px solid var(--border-color);
-    border-radius: 8px;
+    background: var(--minecraft-inset-bg);
+    border: 2px solid var(--minecraft-border-dark);
+    box-shadow: inset 2px 2px 0px rgba(0,0,0,0.3);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: border-color var(--transition), transform var(--transition);
-}
-
-.inventory-slot:hover {
-    transform: scale(1.05);
 }
 
 .inventory-slot img {
-    width: 44px;
-    height: 44px;
+    width: 75%;
+    height: 75%;
+    object-fit: contain;
 }
 
 .inventory-slot.selected {
-    border-color: var(--accent-color);
-    box-shadow: 0 0 10px var(--accent-color);
+    border: 2px solid var(--selected-slot-color);
+    box-shadow: 0 0 10px var(--selected-slot-color);
 }
 
-/* Opções */
-#options-grid {
-    grid-template-columns: 1fr;
-}
-
-.option-button {
-    background: var(--secondary-bg);
-    border: 2px solid var(--border-color);
-    border-radius: 8px;
-    padding: var(--small-spacing) var(--spacing);
-    color: var(--text-color);
-    font-size: 16px;
-    cursor: pointer;
+/* Configurações Avançadas e Controles */
+#options-grid, #controls-grid, .panel-content {
     display: flex;
-    align-items: center;
-    gap: var(--spacing);
-    transition: background var(--transition), transform var(--transition);
-}
-
-.option-button:hover {
-    background: var(--highlight-bg);
-    transform: translateY(-2px);
-}
-
-/* Controles */
-#controls-grid {
-    grid-template-columns: 1fr 1fr;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .control-item {
-    background: var(--secondary-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    padding: var(--small-spacing) var(--spacing);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 14px;
-    cursor: pointer;
-    transition: background var(--transition);
+    padding: 8px;
+    background-color: var(--minecraft-button-bg);
+    border: 2px solid var(--minecraft-border-dark);
 }
 
-.control-item:hover {
-    background: var(--highlight-bg);
+.control-item span {
+    text-shadow: 1px 1px 0px var(--minecraft-text-shadow);
 }
 
-.control-item input[type="range"],
-.control-item select,
-.control-item input[type="checkbox"] {
-    cursor: pointer;
-}
-
-/* Estilos para opções de construção rápida */
-.fast-build-option {
-    background: var(--secondary-bg);
-    color: #888; /* Cinza quando desativado */
-    transition: background var(--transition), color var(--transition);
-}
-
-.fast-build-option.active {
-    background: var(--highlight-bg);
-    color: var(--accent-color); /* Verde vibrante quando ativado */
-}
-
-.fast-build-option input[disabled] {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-/* Controles de toque */
+/* Controles de Toque (Mobile) */
 .touch-controls {
-    display: none;
+    display: none; /* Ativado via JS */
     position: absolute;
     bottom: 20px;
     left: 20px;
@@ -269,114 +240,51 @@ body {
 .touch-button {
     width: var(--button-size);
     height: var(--button-size);
-    background: rgba(255, 255, 255, 0.2);
-    border: none;
-    border-radius: 50%;
-    color: var(--text-color);
-    font-size: 24px;
+    background: rgba(200, 200, 200, 0.25);
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    border-radius: 10px;
+    color: var(--minecraft-text-color);
+    font-size: 28px;
     cursor: pointer;
     position: absolute;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 8px var(--shadow-color);
-    transition: background var(--transition), transform var(--transition);
 }
 
-.touch-button:hover,
 .touch-button:active {
-    background: rgba(255, 255, 255, 0.35);
-    transform: scale(1.1);
+    background: rgba(200, 200, 200, 0.4);
 }
 
-#touch-forward { bottom: 100px; left: 70px; }
-#touch-backward { bottom: 30px; left: 70px; }
-#touch-left { bottom: 30px; left: 0; }
-#touch-right { bottom: 30px; left: 140px; }
-#touch-jump { bottom: 30px; right: 0; }
-#touch-inventory { bottom: 30px; left: 50%; transform: translateX(-50%); }
-#touch-camera { top: 20px; left: 50%; transform: translateX(-50%); }
+/* Posicionamento dos botões de toque */
+#touch-forward { bottom: 70px; left: 80px; }
+#touch-backward { bottom: 0px; left: 80px; }
+#touch-left { bottom: 0px; left: 0px; }
+#touch-right { bottom: 0px; left: 160px; }
+#touch-jump { bottom: 0px; right: 0; }
+#touch-inventory { bottom: 0px; right: 80px; }
 
-/* Botão de opções (nativo para ambos os modos) */
-#options-button {
+/* Botões de Canto */
+#options-button, .mode-button, .camera-mode-button {
     position: absolute;
     top: 20px;
-    right: calc(20px + var(--button-size) + var(--spacing));
-    width: var(--button-size);
-    height: var(--button-size);
-    background: rgba(255, 255, 255, 0.2);
-    border: none;
-    border-radius: 50%;
-    color: var(--text-color);
-    font-size: 24px;
+    width: 50px;
+    height: 50px;
+    background: var(--minecraft-button-bg);
+    border: 2px solid var(--minecraft-border-dark);
+    border-radius: 5px;
+    color: var(--minecraft-text-color);
+    font-size: 22px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 8px var(--shadow-color);
-    transition: background var(--transition), transform var(--transition);
     z-index: 15;
 }
-
-#options-button:hover {
-    background: rgba(255, 255, 255, 0.35);
-    transform: scale(1.1);
+#options-button:hover, .mode-button:hover, .camera-mode-button:hover {
+    background: var(--minecraft-button-hover-bg);
 }
 
-/* Botão de modo (teclado/celular) */
-.mode-button {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    width: var(--button-size);
-    height: var(--button-size);
-    background: rgba(255, 255, 255, 0.2);
-    border: none;
-    border-radius: 50%;
-    color: var(--text-color);
-    font-size: 26px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 4px 8px var(--shadow-color);
-    transition: background var(--transition), transform var(--transition);
-    z-index: 15;
-}
-
-.mode-button:hover {
-    background: rgba(255, 255, 255, 0.35);
-    transform: scale(1.1);
-}
-
-/* Botão de modo de câmera */
-.camera-mode-button {
-    display: none;
-    position: absolute;
-    top: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: var(--button-size);
-    height: var(--button-size);
-    background: rgba(255, 255, 255, 0.2);
-    border: none;
-    border-radius: 50%;
-    color: var(--text-color);
-    font-size: 26px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 4px 8px var(--shadow-color);
-    transition: background var(--transition), transform var(--transition);
-    z-index: 15;
-}
-
-.camera-mode-button.active {
-    display: flex;
-}
-
-.camera-mode-button:hover {
-    background: rgba(255, 255, 255, 0.35);
-    transform: translateX(-50%) scale(1.1);
-}
+#options-button { right: 20px; }
+.mode-button { right: 80px; }
+.camera-mode-button { right: 140px; }
